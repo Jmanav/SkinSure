@@ -2,39 +2,30 @@
 
 > A clinical decision support system built specifically for Fitzpatrick IV–VI skin types, combining a deep learning ensemble, explainability tooling, and an agentic layer to guide patients from image capture to care.
 
----
-
 ## Table of Contents
 
-1. [Project Overview](#1-project-overview)
-2. [Key Features](#2-key-features)
-3. [System Architecture](#3-system-architecture)
-4. [ML Pipeline](#4-ml-pipeline)
-5. [Agentic Layer](#5-agentic-layer)
-6. [Explainability](#6-explainability)
-7. [API](#7-api)
-8. [Federated Learning](#8-federated-learning)
-9. [Project Structure](#9-project-structure)
-10. [Tech Stack](#10-tech-stack)
-11. [Getting Started](#11-getting-started)
-12. [Testing & Fairness](#12-testing--fairness)
-13. [Deployment](#13-deployment)
-
----
+1. Project Overview
+2. Key Features
+3. System Architecture
+4. ML Pipeline
+5. Agentic Layer
+6. Explainability
+7. API
+8. Federated Learning
+9. Project Structure
+10. Tech Stack
+11. Getting Started
+12. Testing & Fairness
+13. Deployment
 
 ## 1. Project Overview
 
 SkinSure is a mobile-first AI screening tool that helps patients in India identify skin conditions from a photograph. The system routes patients to the right level of care — self-care, routine dermatologist, or emergency referral — without ever stating a definitive diagnosis.
 
-**Why India, why now?**
-
-- India has a severe shortage of dermatologists (~1 per 100,000 population in rural areas)
-- Existing dermatology AI datasets are heavily biased toward Fitzpatrick I–III (lighter skin tones), making most commercial tools unreliable for Indian patients
 - Regional and seasonal epidemiology (monsoon fungal outbreaks, regional prevalence of conditions like tinea versicolor, vitiligo) significantly affects clinical likelihood
 
 SkinSure addresses these gaps through tone-aware preprocessing, a fairness-audited ensemble, and India-specific clinical context baked into its agent prompts.
 
----
 
 ## 2. Key Features
 
@@ -48,7 +39,6 @@ SkinSure addresses these gaps through tone-aware preprocessing, a fairness-audit
 - **FastAPI backend** — REST endpoints for prediction, explanation, and patient history
 - **Fairness auditing** — Per-skin-tone accuracy breakdowns in CI pipeline
 
----
 
 ## 3. System Architecture
 
@@ -92,7 +82,6 @@ User (Mobile App)
 6. The router dispatches to pharmacy locator or doctor referral based on severity
 7. A structured `ClinicalSummary` is returned to the patient
 
----
 
 ## 4. ML Pipeline
 
@@ -361,7 +350,6 @@ The fairness suite is also run automatically on every PR via GitHub Actions (`mo
 
 See `docs/deployment.md` for full infrastructure and deployment guide.
 
----
 
 ## Key Design Principles
 
@@ -379,4 +367,4 @@ Federated learning means patient images never leave hospital premises. Only weig
 
 ---
 
-*For architecture deep-dives, see `docs/architecture.md`. For domain knowledge on Indian skin tones and regional conditions, see `docs/indian-skin-tones.md`.*
+*For architecture deep-dives, see `docs/architecture.md`. For domain knowledge on Indian skin tones and regional conditions, see `docs/indian_skin_tones.md`.*

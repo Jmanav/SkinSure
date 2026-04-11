@@ -29,9 +29,9 @@ class Predictions(BaseModel):
           moderate ≥ 0.50
           low      < 0.50
         """
-        if self.primary_confidence >= 0.75:
+        if self.primary_confidence >= 0.80:
             return "high"
-        if self.primary_confidence >= 0.50:
+        if self.primary_confidence >= 0.70:
             return "moderate"
         return "low"
 
@@ -48,7 +48,6 @@ class Predictions(BaseModel):
             ]
         }
     }
-
 
 class XAISummary(BaseModel):
     """Structured summary of xAI heatmap output passed to the clinical summarizer."""

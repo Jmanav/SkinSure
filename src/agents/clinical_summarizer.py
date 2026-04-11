@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 import json
+import logging
 
 import anthropic
 
 from api.schemas.patient import PatientMetadata
 from api.schemas.predictions import ClinicalSummary, Predictions, XAISummary
+from src.utils.config import get_settings
 
-_MODEL = "claude-sonnet-4-20250514"
-_MAX_TOKENS = 1000
+logger = logging.getLogger(__name__)
 
 _TIER_DOWN: dict[str, str] = {"high": "moderate", "moderate": "low", "low": "low"}
 
 _SYSTEM_PROMPT = """\
-You are the clinical summarizer for SkinSure, an AI skin-disease screening tool \
+You are the clinical summarizer for an AI skin-disease screening tool \
 for patients in India with Fitzpatrick IV–VI skin tones.
 
 Your task is to produce a structured clinical summary from model predictions, \
@@ -21,12 +22,12 @@ patient metadata, and explainability analysis. You will receive a context block 
 and must return a single valid JSON object that conforms exactly to the \
 ClinicalSummary schema below — no markdown, no preamble, no trailing text.
 
-=== ClinicalSummary JSON schema ===
+ClinicalSummary JSON schema
 {
   "primary_condition": string,
   "confidence_level": "high" | "moderate" | "low",
   "model_agreement": boolean,
-  "patient_summary": string (2–3 sentences, plain language for the patient),
+  "patient_summary": string (2 to 3 sentences, plain language for the patient),
   "severity": "mild" | "moderate" | "urgent",
   "urgency_reasoning": string,
   "contributing_factors": [string, ...],
@@ -37,7 +38,7 @@ ClinicalSummary schema below — no markdown, no preamble, no trailing text.
   "recapture_needed": boolean
 }
 
-=== Rules you must follow ===
+Rules you must follow
 1. Never state a diagnosis as certain. Use "the screening suggests" or \
 "consistent with" — never "you have" or "this is".
 2. If model agreement is below 70%, add an explicit uncertainty string to \
@@ -53,7 +54,6 @@ contributing_factors and differential_notes fields.
 6. Set model_agreement to true only when agreement_score >= 0.70.
 7. Output valid JSON only — no other text.\
 """
-
 
 def build_context(
     predictions: Predictions,
@@ -85,14 +85,14 @@ def build_context(
     )
 
     return (
-        "=== Model Predictions ===\n"
+        "Model Predictions\n"
         f"Primary condition   : {predictions.primary_label}\n"
         f"Primary confidence  : {predictions.primary_confidence:.1%}  [{tier}]\n"
         f"Secondary condition : {secondary_label}\n"
         f"Secondary confidence: {secondary_conf}\n"
         f"Model agreement     : {agreement_pct}%\n"
         "\n"
-        "=== Patient Context ===\n"
+        "Patient Context\n"
         f"Age                 : {metadata.age}\n"
         f"Sex                 : {metadata.sex}\n"
         f"Fitzpatrick type    : {metadata.fitzpatrick}\n"
@@ -102,7 +102,7 @@ def build_context(
         f"Symptom duration    : {metadata.symptom_duration}\n"
         f"Medical history     : {history_str}\n"
         "\n"
-        "=== xAI Analysis ===\n"
+        "xAI Analysis\n"
         f"Focus description   : {xai_summary.focus_description}\n"
         f"Boundary alignment  : {xai_summary.boundary_alignment}\n"
         f"Artifact detected   : {artifact_note}\n"
@@ -124,12 +124,16 @@ async def summarize(
     - If predictions.agreement_score < 0.70 and no caveat already mentions
       "model disagreement": append the standard disagreement caveat.
     """
+    settings = get_settings()
+    logger.info(f"summarizer using model: {settings.agents.summarizer.model}")
+
     context = build_context(predictions, metadata, xai_summary)
 
     client = anthropic.AsyncAnthropic()
     response = await client.messages.create(
-        model=_MODEL,
-        max_tokens=_MAX_TOKENS,
+        model=settings.agents.summarizer.model,
+        max_tokens=settings.agents.summarizer.max_tokens,
+        temperature=settings.agents.summarizer.temperature,
         system=_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": context}],
     )
