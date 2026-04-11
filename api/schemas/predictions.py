@@ -5,6 +5,86 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 
+class Predictions(BaseModel):
+    """Raw output from the ensemble model."""
+
+    primary_label: str = Field(..., description="Top predicted disease class label")
+    primary_confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score for the top prediction")
+    secondary_label: str | None = Field(default=None, description="Second-ranked disease class label, if applicable")
+    secondary_confidence: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Confidence score for the second prediction"
+    )
+    agreement_score: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Fraction of ensemble models that agree on the top prediction (0.0–1.0)",
+    )
+
+    def confidence_tier(self) -> Literal["high", "moderate", "low"]:
+        """Map primary_confidence to a human-readable tier.
+
+        Thresholds:
+          high     ≥ 0.75
+          moderate ≥ 0.50
+          low      < 0.50
+        """
+        if self.primary_confidence >= 0.75:
+            return "high"
+        if self.primary_confidence >= 0.50:
+            return "moderate"
+        return "low"
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "primary_label": "Tinea versicolor",
+                    "primary_confidence": 0.87,
+                    "secondary_label": "Vitiligo",
+                    "secondary_confidence": 0.09,
+                    "agreement_score": 1.0,
+                }
+            ]
+        }
+    }
+
+
+class XAISummary(BaseModel):
+    """Structured summary of xAI heatmap output passed to the clinical summarizer."""
+
+    focus_description: str = Field(
+        ...,
+        description=(
+            "Plain-language description of the image region the ensemble attended to most "
+            "(e.g. 'central lesion body with high activation on hypopigmented patches')"
+        ),
+    )
+    boundary_alignment: str = Field(
+        ...,
+        description=(
+            "Assessment of whether heatmap activation aligns with the visible lesion boundary "
+            "(e.g. 'well-aligned', 'partial — activation extends into healthy skin', 'poor')"
+        ),
+    )
+    artifact_flag: bool = Field(
+        ...,
+        description="True when the heatmap or input image contains artifacts that may have influenced the prediction",
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "focus_description": "High activation concentrated on hypopigmented patches across the upper back; lesion centre dominates.",
+                    "boundary_alignment": "well-aligned",
+                    "artifact_flag": False,
+                }
+            ]
+        }
+    }
+
+
 class ClinicalSummary(BaseModel):
     primary_condition: str = Field(
         ..., description="Most likely condition identified by the ensemble (e.g. 'Tinea versicolor')"

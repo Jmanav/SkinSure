@@ -60,20 +60,27 @@ skinsure/
 │   │   ├── shap_explainer.py         # SHAP-based feature attribution
 │   │   ├── lime_explainer.py         # LIME for image explanations
 │   │   └── report_generator.py       # combines heatmaps into patient report
+│   │                                 #   returns XAISummary (from api/schemas/prediction.py)
 │   │
 │   ├── agents/
 │   │   ├── CLAUDE.md                 # ★ Local context: agent design patterns
 │   │   ├── __init__.py
 │   │   ├── orchestrator.py           # main agent loop / router
 │   │   ├── clinical_summarizer.py    # prediction + metadata → summary
+│   │   │                             #   imports: Predictions, XAISummary, ClinicalSummary
+│   │   │                             #   imports: PatientMetadata
+│   │   │                             #   XAISummary no longer defined here
 │   │   ├── severity_triage.py        # urgency classification agent
+│   │   │                             #   imports: ClinicalSummary
 │   │   ├── treatment_advisor.py      # next-steps & self-care suggestions
 │   │   ├── doctor_referral.py        # specialist matching by location
 │   │   ├── pharmacy_locator.py       # nearby pharmacy + med availability
 │   │   └── tools/
 │   │       ├── __init__.py
 │   │       ├── model_inference.py    # tool: run ensemble prediction
+│   │       │                         #   returns Predictions (from api/schemas/prediction.py)
 │   │       ├── explain_prediction.py # tool: generate xAI heatmap
+│   │       │                         #   returns XAISummary (from api/schemas/prediction.py)
 │   │       ├── search_doctors.py     # tool: query doctor directory API
 │   │       ├── search_pharmacy.py    # tool: query pharmacy locator API
 │   │       └── patient_history.py    # tool: read/write patient records
@@ -109,8 +116,24 @@ skinsure/
 │   │   └── rate_limit.py             # per-user rate limiting
 │   └── schemas/
 │       ├── __init__.py
-│       ├── prediction.py             # request/response models
-│       └── patient.py                # patient metadata models
+│       ├── prediction.py @api/schemas/predictions.py           # ★ UPDATED — full ML pipeline type contract
+│       │                             #   Predictions      — ensemble output
+│       │                             #     · primary_label, primary_confidence
+│       │                             #     · secondary_label, secondary_confidence
+│       │                             #     · agreement_score
+│       │                             #     · confidence_tier() method
+│       │                             #   XAISummary       — explainability output  ★ NEW
+│       │                             #     · focus_description
+│       │                             #     · boundary_alignment
+│       │                             #     · artifact_flag
+│       │                             #   ClinicalSummary  — agent output
+│       │                             #     · severity, recommended_action
+│       │                             #     · confidence_caveats, recapture_needed
+│       │                             #     · @model_validator: urgent → immediate_referral
+│       └── patient.py                # PatientMetadata model
+│                                     #   · age, sex, fitzpatrick (IV–VI gate)
+│                                     #   · region, current_season, body_area
+│                                     #   · symptom_duration, medical_history
 │
 ├── app/                              # frontend (future)
 │   ├── CLAUDE.md                     # ★ Local context: frontend stack
@@ -164,3 +187,30 @@ skinsure/
 ├── pyproject.toml                    # project deps (uv / poetry)
 ├── Makefile                          # common commands shorthand
 └── README.md
+
+
+## Import map (what changed)
+
+  api/schemas/prediction.py
+    exports → Predictions, XAISummary ★, ClinicalSummary
+
+  api/schemas/patient.py
+    exports → PatientMetadata
+
+  src/agents/tools/model_inference.py
+    imports ← Predictions                       (from api/schemas/prediction)
+
+  src/agents/tools/explain_prediction.py
+    imports ← XAISummary ★                      (from api/schemas/prediction)
+    returns → XAISummary instance
+
+  src/agents/clinical_summarizer.py
+    imports ← Predictions, XAISummary ★, ClinicalSummary  (from api/schemas/prediction)
+    imports ← PatientMetadata                   (from api/schemas/patient)
+    removed → XAISummary dataclass definition ★
+
+  src/agents/severity_triage.py
+    imports ← ClinicalSummary                   (from api/schemas/prediction)
+
+  src/explainability/report_generator.py
+    imports ← XAISummary ★                      (from api/schemas/prediction)
