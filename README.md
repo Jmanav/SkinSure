@@ -1,2 +1,2 @@
 # SkinSure
-SkinSure is an advanced AI-powered diagnostic tool designed to analyze skin disease images instantly. Tailored specifically for Indian skin tones, SkinSure utilizes proprietary image preprocessing and an ensemble model to deliver high-accuracy predictions, ensuring accessibility and early detection of skin conditions. 
+SkinSure is an advanced AI-powered diagnostic tool designed to analyze skin disease images instantly. Tailored specifically for Indian skin tones, SkinSure utilizes proprietary image preprocessing and an ensemble model to deliver high-accuracy predictions, ensuring accessibility and early detection of skin conditions.
