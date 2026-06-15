@@ -27,31 +27,62 @@ A ⭐ marks the single most important thing to get right in that phase.
 
 ---
 
-## Phase map (the whole journey at a glance)
+## Current codebase status (audited 2026-06-10)
 
-| # | Phase | What you end up with |
-|---|-------|----------------------|
-| 0 | Project setup & foundations | A runnable Python project with dependencies, env vars, and a virtual environment |
-| 1 | Load the trained model & predict | A Python script that loads the ensemble and predicts on one image |
-| 2 | Preprocessing pipeline | Images cleaned & normalized before they reach the model |
-| 3 | Clinical summarizer (LLM layer) | A trained-model prediction turned into a patient-friendly clinical summary |
-| 4 | Severity triage (the safety layer) | Deterministic rules that override the LLM on urgent cases |
-| 5 | Explainability (basic Grad-CAM) | A heatmap showing *where* the model looked |
-| 6 | The API (FastAPI) | HTTP endpoints: send an image, get a clinical summary back |
-| 7 | Testing & fairness audit | Automated tests, including per-skin-tone accuracy checks |
-| 8 | Containerization (Docker) | The whole app running inside a reproducible container |
-| 9 | Deployment to the cloud | A live URL anyone can hit |
-| 10 | Hardening & monitoring | Logging, error handling, secrets, basic observability |
-| 11 | Full xAI suite (SHAP + LIME) | Feature- and superpixel-level explanations beyond Grad-CAM |
-| 12 | Remaining agents & router | Treatment advisor, doctor referral, pharmacy locator wired through an orchestrator |
-| 13 | Federated learning | Hospitals train locally; only weight deltas reach the server |
-| 14 | Differential privacy | Privacy-protected deltas for DPDP Act compliance |
+A check of what's actually on disk, because it differs from earlier notes:
 
-> **Phases 0–10 = a deployable product. Phases 11–14 = research extensions** on top of it. Each later phase still assumes everything before it works.
+**Real and usable:**
+- **Model layer** — `src/models/ensemble.py` (130 lines), `efficientnet.py`, `convnext.py`, `swin.py` all have real code. The `SkinEnsemble` wires all three backbones and outputs `Predictions`. **This is the project's one finished asset.**
+- **Config** — `src/utils/config.py` + `configs/agents.yaml` load the summarizer model settings via `get_settings()`. Works.
+- Training/eval notebooks in `src/models/`.
+
+**Empty files (exist, but 0 bytes — must be written from scratch):**
+- `api/schemas/patient.py` and `api/schemas/predictions.py` — **empty.** (Earlier docs claimed these were done; they are not.) The model layer imports `Predictions` from `predictions.py`, so this is an urgent gap.
+- `src/agents/clinical_summarizer.py` — **empty.** (Earlier docs claimed "fully implemented"; it is not.)
+- All agent stubs: `severity_triage.py`, `treatment_advisor.py`, `doctor_referral.py`, `pharmacy_locator.py`, `orchestrator.py`.
+- `src/preprocessing/artifact_removal.py`.
+- `src/agents/tools/` (empty directory).
+
+**Not created yet:**
+- `pyproject.toml`, `requirements.txt`, `.env.example`, `.gitignore`, `.dockerignore`, `docker-compose.yml`.
+- `api/main.py` and all routes.
+- All other preprocessing modules (`quality_check.py`, `color_normalization.py`, `hair_removal.py`).
+- `tests/`, `scripts/`, `docker/`, `.github/`, `src/explainability/`, `src/federated/`.
+
+> ⚠️ **Correction to earlier plan:** the schemas and clinical summarizer are *empty*, not implemented. Phase 3 is now build-from-scratch, and there's a new **Phase 0.5** to write the schemas first — the model layer literally imports from them.
 
 ---
 
-## Phase 0 — Project setup & foundations
+## Phase map (the whole journey at a glance)
+
+Status: ✅ done · 🟡 partial · ⬜ not started
+
+| # | Phase | Status | What you end up with |
+|---|-------|--------|----------------------|
+| 0 | Project setup & foundations | ⬜ | A runnable Python project with dependencies, env vars, and a virtual environment |
+| 0.5 | Pydantic schemas | ⬜ | `PatientMetadata` + `Predictions` / `XAISummary` / `ClinicalSummary` (model layer depends on these) |
+| 1 | Load the trained model & predict | 🟡 | A Python script that loads the ensemble and predicts on one image (ensemble code ✅; loader/script ⬜) |
+| 2 | Preprocessing pipeline | ⬜ | Images cleaned & normalized before they reach the model |
+| 3 | Clinical summarizer (LLM layer) | ⬜ | A trained-model prediction turned into a patient-friendly clinical summary |
+| 4 | Severity triage (the safety layer) | ⬜ | Deterministic rules that override the LLM on urgent cases |
+| 5 | Explainability (basic Grad-CAM) | ⬜ | A heatmap showing *where* the model looked |
+| 6 | The API (FastAPI) | ⬜ | HTTP endpoints: send an image, get a clinical summary back |
+| 7 | Testing & fairness audit | ⬜ | Automated tests, including per-skin-tone accuracy checks |
+| 8 | Containerization (Docker) | ⬜ | The whole app running inside a reproducible container |
+| 9 | Deployment to the cloud | ⬜ | A live URL anyone can hit |
+| 10 | Hardening & monitoring | ⬜ | Logging, error handling, secrets, basic observability |
+| 11 | Full xAI suite (SHAP + LIME) | ⬜ | Feature- and superpixel-level explanations beyond Grad-CAM |
+| 12 | Remaining agents & router | ⬜ | Treatment advisor, doctor referral, pharmacy locator wired through an orchestrator |
+| 13 | Federated learning | ⬜ | Hospitals train locally; only weight deltas reach the server |
+| 14 | Differential privacy | ⬜ | Privacy-protected deltas for DPDP Act compliance |
+
+> **Phases 0–10 = a deployable product. Phases 11–14 = research extensions** on top of it. Each later phase still assumes everything before it works.
+>
+> **Where to start:** Phase 0 → Phase 0.5 (schemas, unblocks everything) → Phase 1.
+
+---
+
+## Phase 0 — Project setup & foundations &nbsp;⬜ not started
 
 **Goal:** Turn this folder into a real, runnable Python project you can install and import from.
 
@@ -70,18 +101,47 @@ A ⭐ marks the single most important thing to get right in that phase.
 4. Confirm `configs/agents.yaml` loads via the existing `src/utils/config.py` → `get_settings()`.
 
 ### Definition of done
-- [ ] `python -c "from src.models.ensemble import SkinEnsemble; print('ok')"` runs without errors.
 - [ ] `python -c "from src.utils.config import get_settings; print(get_settings())"` prints settings.
 - [ ] `.env` exists locally, is gitignored, and `.env.example` is committed.
 - [ ] `ruff check .` runs (warnings are fine for now).
+
+> Note: `from src.models.ensemble import SkinEnsemble` will **fail until Phase 0.5**, because `ensemble.py` imports `Predictions` from the (currently empty) `api/schemas/predictions.py`. That import test is a DoD item for Phase 0.5, not here.
 
 ⭐ **Get the editable install working.** Everything else imports from `src/` and `api/` — if imports don't resolve, nothing downstream runs.
 
 ---
 
-## Phase 1 — Load the trained model & predict
+## Phase 0.5 — Pydantic schemas (the data contracts) &nbsp;⬜ not started
+
+**Goal:** Write the Pydantic models the whole system passes around. **This is currently blocking everything** — `api/schemas/patient.py` and `api/schemas/predictions.py` are empty (0 bytes), and `src/models/ensemble.py` already imports `Predictions` from the empty file, so the model layer can't even be imported yet.
+
+### Learn first
+- **Pydantic v2 basics** — `BaseModel`, field types, defaults. Look up: Pydantic v2 "models".
+- **Validators** — `@field_validator` and `@model_validator` to enforce rules at the data boundary. Look up: Pydantic v2 validators.
+- **Enums for fixed sets** — Fitzpatrick types, severity levels, the 5 disease classes.
+
+### Build
+1. `api/schemas/patient.py` — `PatientMetadata` with the **Fitzpatrick IV–VI gate**: a validator that rejects skin types I–III with a clear error *before* anything reaches the model.
+2. `api/schemas/predictions.py`:
+   - `Predictions` — per-class probabilities, top class, `agreement_score`, and a `confidence_tier()` method mapping `agreement_score` → `"high"/"moderate"/"low"` (≥0.80 / ≥0.70 / <0.70). **Must match what `ensemble.py` constructs** — read `ensemble.py` to see exactly which fields it sets.
+   - `XAISummary` — focus location, boundary alignment, `artifact_flag` (consumed by the summarizer in Phase 3).
+   - `ClinicalSummary` — with a `@model_validator` enforcing `urgent → immediate_referral` at the schema level.
+
+### Definition of done
+- [ ] `python -c "from src.models.ensemble import SkinEnsemble; print('ok')"` now succeeds (the Phase 0 import that was blocked).
+- [ ] A Fitzpatrick I–III `PatientMetadata` raises a validation error; IV–VI passes.
+- [ ] `Predictions.confidence_tier()` returns sensible tiers; the fields line up with what `ensemble.py` builds.
+- [ ] Constructing a `ClinicalSummary` with `urgent` severity but no immediate referral raises.
+
+⭐ **Match `Predictions` to what `ensemble.py` already constructs.** The ensemble code is the finished, authoritative side of this contract — the schema must fit it, not the other way around. Read `ensemble.py` first.
+
+---
+
+## Phase 1 — Load the trained model & predict &nbsp;🟡 partial (ensemble code ✅ · loader + script ⬜)
 
 **Goal:** Load the three trained backbone checkpoints into the `SkinEnsemble` and get a prediction on a single test image.
+
+> Status: the `SkinEnsemble` class and the three backbone modules are **already written** (`src/models/`). What's missing is (a) the schemas it depends on (Phase 0.5) and (b) a script that loads checkpoints, transforms an image, and runs it. Requires Phase 0.5 first.
 
 ### Learn first
 - **What a PyTorch checkpoint is** — a saved `state_dict` of weights. Look up: `torch.load`, `model.load_state_dict`, `model.eval()`.
@@ -106,7 +166,7 @@ A ⭐ marks the single most important thing to get right in that phase.
 
 ---
 
-## Phase 2 — Preprocessing pipeline
+## Phase 2 — Preprocessing pipeline  ⬜ not started
 
 **Goal:** Clean images before they reach the model so predictions are reliable.
 
@@ -133,34 +193,34 @@ A ⭐ marks the single most important thing to get right in that phase.
 
 ---
 
-## Phase 3 — Clinical summarizer (the LLM layer)
+## Phase 3 — Clinical summarizer (the LLM layer) &nbsp;⬜ not started
 
 **Goal:** Turn a raw `Predictions` object into a patient-friendly `ClinicalSummary` using Claude.
 
-> Good news: `src/agents/clinical_summarizer.py` is **already implemented**. This phase is mostly *understanding* and *testing* it, not writing it from scratch.
+> ⚠️ `src/agents/clinical_summarizer.py` is **empty (0 bytes)** — you're building this from scratch, not just reviewing it. (Earlier notes said it was implemented; that was wrong.) It depends on the Phase 0.5 schemas. The config in `configs/agents.yaml` (model `claude-haiku-4-5-20251001`) is real and ready to use.
 
 ### Learn first
-- **What an LLM API call looks like** — system prompt, user message, JSON response. Look up: the `anthropic` async SDK; read `docs/claude-api` references via the `/claude-api` skill.
+- **What an LLM API call looks like** — system prompt, user message, JSON response. Look up: the `anthropic` async SDK; read `/claude-api` references via the skill.
 - **Async Python** — `async def` / `await`. Look up: `asyncio.run()`.
-- **The two-phase design** — `build_context()` is pure Python (deterministic formatting); `summarize()` is the async LLM call. Read the code and the CLAUDE.md section on this.
-- **The post-processing rules** — artifact flag downgrades confidence; low agreement appends a caveat. Understand *why these are in Python, not left to the LLM*.
+- **The two-phase design you'll build** — keep `build_context()` as pure Python (deterministic formatting) and `summarize()` as the async LLM call. Don't let interpretation leak into the context builder.
+- **The post-processing rules** — artifact flag downgrades confidence; low agreement appends a caveat. These live in Python, *not* in the LLM.
 
 ### Build
-1. Read `clinical_summarizer.py` end to end. Trace one prediction through `build_context()` → `summarize()` → post-processing.
-2. Write `scripts/summarize_one.py`: take a `Predictions` object (from Phase 1) and `PatientMetadata`, call `summarize()`, print the `ClinicalSummary`.
-3. Verify the `ClinicalSummary` `@model_validator` (urgent → immediate_referral) actually fires by feeding it an urgent case.
-4. Confirm the model used matches `configs/agents.yaml` (`claude-haiku-4-5-20251001`).
+1. Implement `build_context(predictions, patient, xai_summary) -> str` — deterministic formatting only, no interpretation.
+2. Implement `async summarize(...) -> ClinicalSummary` — call Claude (model from `get_settings()`), instruct it to return **JSON only**, parse into `ClinicalSummary` (raise `ValueError` with the raw response on parse failure).
+3. Add post-processing after the LLM response: if `xai_summary.artifact_flag` → downgrade `confidence_level` one tier and set `recapture_needed = True`; if `agreement_score < 0.70` and no caveat mentions "model disagreement" → append the standard caveat.
+4. Write `scripts/summarize_one.py`: feed a `Predictions` + `PatientMetadata`, print the `ClinicalSummary`.
 
 ### Definition of done
-- [ ] You can produce a real `ClinicalSummary` from a prediction + metadata.
-- [ ] You've confirmed the artifact-flag downgrade and low-agreement caveat both trigger.
-- [ ] You can explain, in one sentence each, why the context builder is deterministic and the summarizer is not.
+- [ ] `scripts/summarize_one.py` produces a real `ClinicalSummary` from a prediction + metadata.
+- [ ] The artifact-flag downgrade and low-agreement caveat both trigger (test each).
+- [ ] `build_context()` contains zero interpretation — only formatting.
 
 ⭐ **Internalize "LLM interprets; Python decides."** This principle governs the whole agentic layer and is the foundation for Phase 4.
 
 ---
 
-## Phase 4 — Severity triage (the safety layer)
+## Phase 4 — Severity triage (the safety layer)  ⬜ not started
 
 **Goal:** Add deterministic rules that **override the LLM** on dangerous cases. This is the most safety-critical code in the project.
 
@@ -185,7 +245,7 @@ A ⭐ marks the single most important thing to get right in that phase.
 
 ---
 
-## Phase 5 — Explainability (basic Grad-CAM)
+## Phase 5 — Explainability (basic Grad-CAM)  ⬜ not started
 
 **Goal:** Produce a heatmap showing which part of the image drove the prediction, and convert it into the `XAISummary` the summarizer consumes.
 
@@ -208,7 +268,7 @@ A ⭐ marks the single most important thing to get right in that phase.
 
 ---
 
-## Phase 6 — The API (FastAPI)
+## Phase 6 — The API (FastAPI)  ⬜ not started
 
 **Goal:** Wrap everything in HTTP endpoints so an app could send an image and receive a clinical summary.
 
@@ -237,7 +297,7 @@ A ⭐ marks the single most important thing to get right in that phase.
 
 ---
 
-## Phase 7 — Testing & fairness audit
+## Phase 7 — Testing & fairness audit  ⬜ not started
 
 **Goal:** Lock in correctness with automated tests, including the project's signature **per-skin-tone fairness check**.
 
@@ -260,7 +320,7 @@ A ⭐ marks the single most important thing to get right in that phase.
 
 ---
 
-## Phase 8 — Containerization (Docker)
+## Phase 8 — Containerization (Docker)  ⬜ not started
 
 **Goal:** Package the app so it runs identically on your machine and in the cloud.
 
@@ -285,7 +345,7 @@ A ⭐ marks the single most important thing to get right in that phase.
 
 ---
 
-## Phase 9 — Deployment to the cloud
+## Phase 9 — Deployment to the cloud  ⬜ not started
 
 **Goal:** Get a live URL on a major cloud provider (AWS / GCP / Azure).
 
@@ -314,7 +374,7 @@ A ⭐ marks the single most important thing to get right in that phase.
 
 ---
 
-## Phase 10 — Hardening & monitoring (production readiness)
+## Phase 10 — Hardening & monitoring (production readiness)  ⬜ not started
 
 **Goal:** Make the deployed service safe, observable, and maintainable.
 
@@ -342,7 +402,7 @@ A ⭐ marks the single most important thing to get right in that phase.
 
 ---
 
-## Phase 11 — Full xAI suite (SHAP + LIME)
+## Phase 11 — Full xAI suite (SHAP + LIME)  ⬜ not started
 
 **Goal:** Go beyond Grad-CAM's "where" to feature- and superpixel-level explanations of *why* the model predicted a class, and use them to validate the model attends to the lesion, not the background.
 
@@ -369,7 +429,7 @@ A ⭐ marks the single most important thing to get right in that phase.
 
 ---
 
-## Phase 12 — Remaining agents & router
+## Phase 12 — Remaining agents & router  ⬜ not started
 
 **Goal:** Complete the agentic layer so a clinical summary flows into actionable next steps — treatment guidance, referral, and pharmacy lookup — coordinated by an orchestrator/router.
 
@@ -394,7 +454,7 @@ A ⭐ marks the single most important thing to get right in that phase.
 
 ---
 
-## Phase 13 — Federated learning
+## Phase 13 — Federated learning  ⬜ not started
 
 **Goal:** Let hospital partners improve the model on their own local data without that data ever leaving their premises — only model weight *deltas* are sent to a central server.
 
@@ -419,7 +479,7 @@ A ⭐ marks the single most important thing to get right in that phase.
 
 ---
 
-## Phase 14 — Differential privacy
+## Phase 14 — Differential privacy  ⬜ not started
 
 **Goal:** Add mathematical privacy guarantees to the weight deltas, so even the deltas can't be reverse-engineered to leak information about an individual patient — the compliance capstone.
 
