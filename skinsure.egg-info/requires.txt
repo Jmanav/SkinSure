@@ -1,0 +1,16 @@
+torch
+timm
+pillow
+numpy
+opencv-python
+anthropic
+pydantic
+pydantic-settings
+pyyaml
+fastapi
+uvicorn
+python-multipart
+
+[dev]
+pytest
+ruff

@@ -1,0 +1,19 @@
+Metadata-Version: 2.4
+Name: skinsure
+Version: 0.1.0
+Requires-Python: >=3.10
+Requires-Dist: torch
+Requires-Dist: timm
+Requires-Dist: pillow
+Requires-Dist: numpy
+Requires-Dist: opencv-python
+Requires-Dist: anthropic
+Requires-Dist: pydantic
+Requires-Dist: pydantic-settings
+Requires-Dist: pyyaml
+Requires-Dist: fastapi
+Requires-Dist: uvicorn
+Requires-Dist: python-multipart
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
