@@ -24,7 +24,6 @@ class CheckpointPaths:
     convnext: str | Path
     swin: str | Path
 
-
 class SkinEnsemble:
     """
     Weighted-average ensemble of EfficientNet-B1, ConvNeXt-Tiny, and Swin-Tiny.
