@@ -1,0 +1,9 @@
+checkpoints:
+  efficientnet: models/checkpoints/efficientNet/efficientnet_b1_5cls_skin.pth
+  convnext: models/checkpoints/convNext/convnext_tiny_5cls_skin.pth
+  swin: models/checkpoints/swin/swin_tiny_5cls_skin.pth
+
+weights:
+  efficientnet: 1.0
+  convnext: 1.0
+  swin: 1.0
