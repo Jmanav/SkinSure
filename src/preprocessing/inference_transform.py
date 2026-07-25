@@ -11,10 +11,9 @@ _transform = transforms.Compose(
     [
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
+        transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD), #This shifts and scales the pixel values so they match what the model saw during training
     ]
 )
-
 
 def preprocess_image(image: Image.Image) -> torch.Tensor:
     """

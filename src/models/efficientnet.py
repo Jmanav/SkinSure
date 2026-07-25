@@ -39,7 +39,7 @@ def load_efficientnet_b1(
     path: str, device: torch.device
 ) -> tuple[EfficientSkinClassifier, list[str]]:
     """Load a trained EfficientNet-B1 checkpoint. Returns (model, classes)."""
-    ckpt = torch.load(path, map_location=device)
+    ckpt = torch.load(path, map_location=device, weights_only=False)
     model = EfficientSkinClassifier(
         num_classes=len(ckpt["classes"]),
         dropout=ckpt["config"]["dropout"],

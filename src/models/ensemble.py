@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 _AnyModel = EfficientSkinClassifier | ConvNeXtSkinClassifier | SwinSkinClassifier
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True) #using dataclass you dont need to write boilerplate code for init, repr, eq, etc. It automatically generates these methods based on the class attributes.
 class CheckpointPaths:
     efficientnet: str | Path
     convnext: str | Path
@@ -71,11 +71,9 @@ class SkinEnsemble:
     def predict(self, image_tensor: torch.Tensor) -> Predictions:
         """
         Run ensemble inference on a single pre-processed image tensor.
-
         Args:
             image_tensor: Shape (1, 3, 224, 224), normalised with ImageNet stats,
                           already on CPU — this method moves it to self.device.
-
         Returns:
             Predictions with primary/secondary labels, confidences, and agreement_score.
         """

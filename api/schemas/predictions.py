@@ -10,9 +10,9 @@ class Predictions(BaseModel):
     agreement_score : float
 
     def confidence_tier(self) -> str:
-        if self.agreement_score >= 85:
+        if self.agreement_score >= 0.80:
             return "high"
-        elif self.agreement_score >= 75:
+        elif self.agreement_score >= 0.70:
             return "moderate"
         else: return "low"
 
