@@ -1,38 +1,11 @@
 import asyncio
 import json
-from types import SimpleNamespace
 
 import pytest
+from helpers import FakeClient, llm_json as _llm_json
 
 from api.schemas.predictions import ConfidenceLevel, DiseaseClass, FocusRegion, Severity
 from src.agents.clinical_summarizer import _DISAGREEMENT_CAVEAT, build_context, summarize
-
-
-class FakeClient:
-    """Stands in for anthropic.AsyncAnthropic: returns a canned text and records the call."""
-
-    def __init__(self, text: str):
-        self._text = text
-        self.calls: list[dict] = []
-        self.messages = SimpleNamespace(create=self._create)
-
-    async def _create(self, **kwargs):
-        self.calls.append(kwargs)
-        return SimpleNamespace(content=[SimpleNamespace(type="text", text=self._text)])
-
-
-def _llm_json(**overrides) -> str:
-    data = dict(
-        severity="routine",
-        summary="A common skin condition.",
-        recommended_action="Moisturise daily.",
-        confidence_level="high",
-        confidence_caveats=[],
-        recapture_needed=False,
-        immediate_referral=False,
-    )
-    data.update(overrides)
-    return json.dumps(data)
 
 
 def _run(client, predictions, patient, xai):

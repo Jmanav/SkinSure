@@ -34,6 +34,7 @@ Last audited 2026-10-10 against the files on disk.
 - `scripts/predict_one.py` — single-image inference through the preprocessing pipeline (works)
 - Clinical summarizer — `src/agents/clinical_summarizer.py` (`build_context`, async `summarize`, post-processing); demo in `scripts/summarize_one.py`
 - Severity triage — `src/agents/severity_triage.py` (`triage(predictions, summary, patient) -> TriageResult`; all three hard overrides)
+- Orchestrator and API — `src/agents/orchestrator.py` (`run_screening(image, patient, *, ensemble, explainer, client) -> ScreeningResult`: quality gate → ensemble → explainer → summarizer → triage; statuses `completed` / `rejected` / `blocked`; `treatment_advice_allowed` is False for urgent, referral and re-capture cases) and `api/main.py` (`create_app(ensemble, explainer, client)`; `GET /health`, `POST /predict` taking a multipart `image` + `metadata` JSON string). The **explainer is injected and has no default**: Grad-CAM lives outside the repo for now, so `/predict` returns 503 until one is passed to `create_app`.
 - Config — `src/utils/config.py` (`get_settings()` for `configs/agents.yaml`; `get_model_config()` / `get_checkpoint_paths()` for `configs/models.yaml`; `get_preprocessing_config()` for `configs/preprocessing.yaml`), `configs/agents.yaml`, `configs/models.yaml` (checkpoint paths and ensemble weights)
 - Packaging — `pyproject.toml`, `.env.example`, `.gitignore`
 
@@ -44,10 +45,10 @@ Last audited 2026-10-10 against the files on disk.
 4. No pytest tests for the preprocessing modules yet.
 5. `predict_one.py` was run once on a synthetic image (`scratch_test_image.png`): checkpoints load and it prints predictions. Not yet checked on a real lesion photo.
 
-**Empty stubs (0 bytes):** `src/agents/orchestrator.py`, `treatment_advisor.py`, `doctor_referral.py`, `pharmacy_locator.py`; `src/CLAUDE.md`, `src/agents/CLAUDE.md`; `docs/indian_skin_tones.md` (domain knowledge still to be written). `src/agents/tools/` is an empty directory.
+**Empty stubs (0 bytes):** `treatment_advisor.py`, `doctor_referral.py`, `pharmacy_locator.py`; `src/CLAUDE.md`, `src/agents/CLAUDE.md`; `docs/indian_skin_tones.md` (domain knowledge still to be written). `src/agents/tools/` is an empty directory.
 
 **Not yet created:**
-- `api/main.py`, routes and middleware
+- `GET /history`, `POST /history`, `POST /explain`; auth, rate limiting and middleware
 - Preprocessing: `augmentation.py` (training only)
 - `src/explainability/`, `training/`, `docker/`, `.github/`
 - other planned scripts
@@ -60,7 +61,7 @@ Last audited 2026-10-10 against the files on disk.
 
 ## Commands
 
-`pyproject.toml` exists (install with `pip install -e .[dev]`), and `tests/unit/` runs today; `api/main.py` does not exist yet. Commands (some not available yet):
+`pyproject.toml` exists (install with `pip install -e .[dev]`), and `tests/unit/` + `tests/integration/` run today. Commands (some not available yet):
 
 ```bash
 # Run all tests
@@ -72,7 +73,7 @@ pytest tests/unit/test_clinical_summarizer.py
 # Run with fairness audit
 pytest tests/fairness/test_skin_tone_bias.py
 
-# Start API dev server (once api/main.py exists)
+# Start API dev server (/predict answers 503 until an explainer is supplied)
 uvicorn api.main:app --reload
 
 # Training (top-level training/ directory, once created)
@@ -198,7 +199,7 @@ Classes (5), in model index order (alphabetical, as stored in each checkpoint's 
 
 | Agent | File | Status |
 |---|---|---|
-| Orchestrator | `src/agents/orchestrator.py` | Stub |
+| Orchestrator | `src/agents/orchestrator.py` | **Implemented** (`run_screening`; router to later agents still to come) |
 | Clinical Summarizer | `src/agents/clinical_summarizer.py` | **Implemented** |
 | Severity Triage | `src/agents/severity_triage.py` | **Implemented** |
 | Treatment Advisor | `src/agents/treatment_advisor.py` | Stub |

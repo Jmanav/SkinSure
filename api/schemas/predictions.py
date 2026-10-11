@@ -81,6 +81,12 @@ class Severity(str, Enum):
     URGENT = "urgent"
 
 
+class ScreeningStatus(str, Enum):
+    COMPLETED = "completed"  # a summary is available
+    REJECTED = "rejected"    # image failed the quality gate; the model never ran
+    BLOCKED = "blocked"      # model ran but confidence is too low; result withheld, re-capture
+
+
 class ConfidenceLevel(str, Enum):
     HIGH = "high"
     MODERATE = "moderate"

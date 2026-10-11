@@ -43,9 +43,9 @@ A ⭐ marks the single most important thing to get right in that phase.
 - No `tests/` yet.
 - `summarize_one.py` not yet run against the real API; `predict_one.py` only run on a synthetic image.
 
-**Empty files (0 bytes):** agent stubs `orchestrator.py`, `treatment_advisor.py`, `doctor_referral.py`, `pharmacy_locator.py`, `docs/indian_skin_tones.md`, `src/CLAUDE.md`, `src/agents/CLAUDE.md`, and the `src/agents/tools/` directory.
+**Empty files (0 bytes):** agent stubs `treatment_advisor.py`, `doctor_referral.py`, `pharmacy_locator.py`, `docs/indian_skin_tones.md`, `src/CLAUDE.md`, `src/agents/CLAUDE.md`, and the `src/agents/tools/` directory.
 
-**Not created yet:** `api/main.py` and routes; `augmentation.py`; `tests/`, `scripts/` beyond `predict_one.py` / `summarize_one.py`, `docker/`, `.github/`, `src/explainability/`, `src/federated/`, `training/`.
+**Not created yet:** `/explain` and `/history` routes; `augmentation.py`; `tests/fairness/`, `scripts/` beyond `predict_one.py` / `summarize_one.py`, `docker/`, `.github/`, `src/explainability/`, `src/federated/`, `training/`.
 
 **Future scope:** `skin_tone_classifier.py` (image-based Fitzpatrick detection). Federated learning and differential privacy are deferred (`fedler.md`).
 
@@ -64,7 +64,7 @@ Status: ✅ done · 🟡 partial · ⬜ not started
 | 3 | Clinical summarizer (LLM layer) | 🟡 | Implemented and tested with a fake client; real-API run and unit tests pending |
 | 4 | Severity triage (the safety layer) | 🟡 | Implemented (3 overrides); pytest tests pending |
 | 5 | Explainability (basic Grad-CAM) | ⬜ | A heatmap showing *where* the model looked |
-| 6 | The API (FastAPI) | ⬜ | HTTP endpoints: send an image, get a clinical summary back |
+| 6 | The API (FastAPI) | 🟡 | HTTP endpoints: send an image, get a clinical summary back |
 | 7 | Testing & fairness audit | ⬜ | Automated tests, including per-skin-tone accuracy checks |
 | 8 | Containerization (Docker) | ⬜ | The whole app running inside a reproducible container |
 | 9 | Deployment to the cloud | ⬜ | A live URL anyone can hit |
@@ -266,7 +266,7 @@ Status: ✅ done · 🟡 partial · ⬜ not started
 
 ---
 
-## Phase 6 — The API (FastAPI)  ⬜ not started
+## Phase 6 — The API (FastAPI)  🟡 `/predict` + `/health` done; `/explain`, `/history` pending
 
 **Goal:** Wrap everything in HTTP endpoints so the website could send an image and receive a clinical summary.
 
