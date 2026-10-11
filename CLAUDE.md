@@ -97,7 +97,9 @@ python scripts/summarize_one.py          # needs ANTHROPIC_API_KEY in .env; call
 
 `ClinicalSummary` fields: `severity` (`routine` / `monitor` / `urgent`), `summary`, `recommended_action`, `confidence_level` (`high` / `moderate` / `low`), `confidence_caveats`, `recapture_needed`, `immediate_referral`. Its `@model_validator` enforces `urgent → immediate_referral` at the Pydantic level, so the safety constraint is checked in two places: the LLM system prompt and the schema validator.
 
-`XAISummary` fields: `focus_description`, `boundary_alignment`, `artifact_flag`.
+`Predictions` labels are the `DiseaseClass` enum (exact checkpoint strings: `Basal_Cell_Carcinoma`, `Eczema`, `Keratosis`, `Melanoma`, `Tinea`); confidences and `agreement_score` are bounded 0–1, and the secondary label must differ from the primary with confidence ≤ primary. `SkinEnsemble` refuses checkpoints whose classes are not exactly that set.
+
+`XAISummary` fields: `focus_description` (`FocusRegion` enum: `lesion_centre`, `lesion_border`, `diffuse`, `background_skin`, `artifact`), `boundary_alignment` (`BoundaryAlignment`: `good`, `partial`, `poor`), `artifact_flag`. A validator requires `artifact_flag=True` when focus is `artifact`.
 
 `Predictions.confidence_tier()` maps `agreement_score` (a fraction of 3 models: 0 / 0.33 / 0.67 / 1.0) to `"high"` (all three agree) / `"moderate"` (two agree) / `"low"` (otherwise) — use this method rather than replicating the threshold logic.
 

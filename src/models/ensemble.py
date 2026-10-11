@@ -7,7 +7,7 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 
-from api.schemas.predictions import Predictions
+from api.schemas.predictions import DiseaseClass, Predictions
 from src.models.convnext import ConvNeXtSkinClassifier, load_convnext_tiny
 from src.models.efficientnet import EfficientSkinClassifier, load_efficientnet_b1
 from src.models.swin import SwinSkinClassifier, load_swin_tiny
@@ -63,6 +63,13 @@ class SkinEnsemble:
                 f"  ConvNeXt     : {classes_cnxt}\n"
                 f"  Swin         : {classes_swin}"
             )
+        # Guard: the checkpoint labels must be exactly the DiseaseClass set, so a retrained
+        # or renamed class fails loudly at load time, not on the first prediction.
+        expected = {c.value for c in DiseaseClass}
+        if set(classes_eff) != expected:
+            raise ValueError(
+                f"Checkpoint classes {classes_eff} do not match DiseaseClass {sorted(expected)}"
+            )
         self.classes: list[str] = classes_eff
 
         total = sum(weights)
@@ -109,8 +116,9 @@ class SkinEnsemble:
         primary_idx   = top2_idx[0].item()
         secondary_idx = top2_idx[1].item()
 
-        primary_conf   = top2_conf[0].item()
-        secondary_conf = top2_conf[1].item()
+        # clamp: float32 sums of softmax outputs can land a hair above 1.0
+        primary_conf   = min(top2_conf[0].item(), 1.0)
+        secondary_conf = min(top2_conf[1].item(), 1.0)
 
         # agreement_score: fraction of individual models whose argmax matches ensemble argmax
         #argmax returns the largest value in tensor/array.

@@ -70,13 +70,13 @@ def build_context(
         f"- Spreading rapidly (patient-reported): {'yes' if patient.is_spreading_rapidly else 'no'}\n"
         "\n"
         "MODEL PREDICTION\n"
-        f"- Primary: {predictions.primary_label} ({predictions.primary_confidence:.1%})\n"
-        f"- Secondary: {predictions.secondary_label} ({predictions.secondary_confidence:.1%})\n"
+        f"- Primary: {predictions.primary_label.value} ({predictions.primary_confidence:.1%})\n"
+        f"- Secondary: {predictions.secondary_label.value} ({predictions.secondary_confidence:.1%})\n"
         f"- Model agreement: {predictions.agreement_score:.2f} ({predictions.confidence_tier()})\n"
         "\n"
         "EXPLAINABILITY (Grad-CAM)\n"
-        f"- Focus: {xai_summary.focus_description}\n"
-        f"- Boundary alignment: {xai_summary.boundary_alignment}\n"
+        f"- Focus: {xai_summary.focus_description.value}\n"
+        f"- Boundary alignment: {xai_summary.boundary_alignment.value}\n"
         f"- Artifact flagged: {'yes' if xai_summary.artifact_flag else 'no'}\n"
     )
 

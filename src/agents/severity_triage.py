@@ -3,15 +3,21 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from api.schemas.patient import PatientMetadata
-from api.schemas.predictions import ClinicalSummary, ConfidenceLevel, Predictions, Severity
+from api.schemas.predictions import (
+    ClinicalSummary,
+    ConfidenceLevel,
+    DiseaseClass,
+    Predictions,
+    Severity,
+)
 
 # "LLM interprets; Python decides": these rules run AFTER the summarizer and can only make
 # the outcome safer (escalate or block) - never downgrade what the LLM proposed.
 
-MELANOMA_LABEL = "melanoma"
+MELANOMA_LABEL = DiseaseClass.MELANOMA
 MELANOMA_URGENT_MIN_CONFIDENCE = 0.40  # at or above this, a melanoma top-1 is always urgent
 BLOCK_BELOW_CONFIDENCE = 0.40          # below this the prediction is unreliable: re-capture
-INFECTION_LABELS = {"tinea"}           # classes treated as infections for the spreading rule
+INFECTION_LABELS = {DiseaseClass.TINEA}  # classes treated as infections for the spreading rule
 
 
 @dataclass(frozen=True)
@@ -42,7 +48,7 @@ def triage(
     # Rule 2: melanoma at moderate+ confidence -> urgent + immediate referral.
     # Not applied when blocked: a result that is being withheld must not be presented as urgent.
     escalated = False
-    is_melanoma = predictions.primary_label.strip().lower() == MELANOMA_LABEL
+    is_melanoma = predictions.primary_label == MELANOMA_LABEL
     if (
         not blocked
         and is_melanoma
@@ -56,9 +62,9 @@ def triage(
     if (
         not blocked
         and patient.is_spreading_rapidly
-        and predictions.primary_label.strip().lower() in INFECTION_LABELS
+        and predictions.primary_label in INFECTION_LABELS
     ):
-        reasons.append(f"rapidly spreading infection ({predictions.primary_label})")
+        reasons.append(f"rapidly spreading infection ({predictions.primary_label.value})")
         escalated = escalated or summary.severity != Severity.URGENT
         updates.update(severity=Severity.URGENT, immediate_referral=True)
 

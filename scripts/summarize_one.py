@@ -5,7 +5,13 @@ import asyncio
 from dotenv import load_dotenv
 
 from api.schemas.patient import BodyArea, FitzpatrickType, PatientMetadata, Season, Sex
-from api.schemas.predictions import Predictions, XAISummary
+from api.schemas.predictions import (
+    BoundaryAlignment,
+    DiseaseClass,
+    FocusRegion,
+    Predictions,
+    XAISummary,
+)
 from src.agents.clinical_summarizer import summarize
 
 
@@ -13,9 +19,9 @@ async def main() -> None:
     load_dotenv()  # puts ANTHROPIC_API_KEY from .env into the environment
 
     predictions = Predictions(
-        primary_label="melanoma",
+        primary_label=DiseaseClass.MELANOMA,
         primary_confidence=0.62,
-        secondary_label="nevus",
+        secondary_label=DiseaseClass.KERATOSIS,
         secondary_confidence=0.25,
         agreement_score=0.33,  # only 1 of 3 agrees -> "low" tier -> disagreement caveat
     )
@@ -33,8 +39,8 @@ async def main() -> None:
         is_spreading_rapidly=False,
     )
     xai = XAISummary(
-        focus_description="centre of the lesion",
-        boundary_alignment="partial",
+        focus_description=FocusRegion.LESION_CENTRE,
+        boundary_alignment=BoundaryAlignment.PARTIAL,
         artifact_flag=False,
     )
 

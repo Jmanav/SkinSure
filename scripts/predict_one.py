@@ -43,8 +43,8 @@ def main() -> None:
 
     predictions = ensemble.predict(image_tensor)
 
-    print(f"Primary   : {predictions.primary_label} ({predictions.primary_confidence:.3f})")
-    print(f"Secondary : {predictions.secondary_label} ({predictions.secondary_confidence:.3f})")
+    print(f"Primary   : {predictions.primary_label.value} ({predictions.primary_confidence:.3f})")
+    print(f"Secondary : {predictions.secondary_label.value} ({predictions.secondary_confidence:.3f})")
     print(f"Agreement : {predictions.agreement_score:.2f} ({predictions.confidence_tier()})")
 
 
