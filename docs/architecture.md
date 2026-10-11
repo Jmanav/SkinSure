@@ -1,3 +1,8 @@
+# SkinSure — Target Architecture
+
+> Planned folder layout and import map. Many files here do not exist yet — `CLAUDE.md` ("Current Implementation State") is the source of truth for what is built, and `fedler.md` for federated learning. Files marked "exists" are implemented.
+
+```
 skinsure/
 │
 ├── .claude/                          # Claude Code config
@@ -8,16 +13,21 @@ skinsure/
 │       ├── evaluate.md               # /evaluate — run eval suite
 │       └── deploy.md                 # /deploy — build & deploy
 │
-├── CLAUDE.md                         # ★ Global context for Claude Code
+├── CLAUDE.md                         # ★ Global context + source of truth for current state
 │                                     #   project overview, conventions,
 │                                     #   tech stack, coding standards
+├── fedler.md                         # ★ Source of truth for federated learning & DP
+├── QnA.md                            # learning log (not normative)
+├── models/
+│   └── checkpoints/                  # trained .pth files: efficientNet/, convNext/, swin/
 │
 ├── docs/
 │   ├── architecture.md               # system design & data flow
-│   ├── model-card.md                 # ensemble model card (bias, limitations)
-│   ├── api-reference.md              # REST/gRPC endpoint docs
-│   ├── deployment.md                 # infra & deployment guide
-│   └── indian-skin-tones.md          # domain knowledge: Fitzpatrick IV-VI,
+│   ├── ROADMAP.md                    # phase-by-phase build plan
+│   ├── model-card.md                 # (planned) ensemble model card (bias, limitations)
+│   ├── api-reference.md              # (planned) REST endpoint docs
+│   ├── deployment.md                 # (planned) infra & deployment guide
+│   └── indian_skin_tones.md          # domain knowledge: Fitzpatrick IV-VI,
 │                                     #   common conditions, regional patterns
 │
 ├── data/
@@ -36,10 +46,12 @@ skinsure/
 │   │   ├── CLAUDE.md                 # ★ Local context: preprocessing conventions
 │   │   ├── __init__.py
 │   │   ├── pipeline.py               # orchestrates all preprocessing steps
+│   │   ├── inference_transform.py    # resize 224 + ImageNet normalisation (exists)
 │   │   ├── color_normalization.py    # shades-of-gray, Macenko, Reinhard
 │   │   ├── hair_removal.py           # DullRazor / inpainting
 │   │   ├── augmentation.py           # tone-aware augmentations
-│   │   ├── skin_tone_classifier.py   # Fitzpatrick type detection (IV-VI gate)
+│   │   ├── skin_tone_classifier.py   # FUTURE SCOPE — image-based Fitzpatrick detection;
+│   │   │                             #   the IV–VI gate is enforced by PatientMetadata today
 │   │   ├── quality_check.py          # blur detection, resolution validation
 │   │   └── artifact_removal.py       # ruler marks, ink, bubbles
 │   │
@@ -48,7 +60,7 @@ skinsure/
 │   │   ├── __init__.py
 │   │   ├── efficientnet.py           # EfficientNet backbone
 │   │   ├── convnext.py               # ConvNeXt backbone
-│   │   ├── swin_transformer.py       # Swin Transformer backbone
+│   │   ├── swin.py                   # Swin Transformer backbone
 │   │   ├── ensemble.py               # weighted ensemble / meta-learner
 │   │   ├── losses.py                 # focal loss, class-balanced loss
 │   │   └── metrics.py                # per-class accuracy, AUC, fairness metrics
@@ -60,7 +72,7 @@ skinsure/
 │   │   ├── shap_explainer.py         # SHAP-based feature attribution
 │   │   ├── lime_explainer.py         # LIME for image explanations
 │   │   └── report_generator.py       # combines heatmaps into patient report
-│   │                                 #   returns XAISummary (from api/schemas/prediction.py)
+│   │                                 #   returns XAISummary (from api/schemas/predictions.py)
 │   │
 │   ├── agents/
 │   │   ├── CLAUDE.md                 # ★ Local context: agent design patterns
@@ -78,20 +90,24 @@ skinsure/
 │   │   └── tools/
 │   │       ├── __init__.py
 │   │       ├── model_inference.py    # tool: run ensemble prediction
-│   │       │                         #   returns Predictions (from api/schemas/prediction.py)
+│   │       │                         #   returns Predictions (from api/schemas/predictions.py)
 │   │       ├── explain_prediction.py # tool: generate xAI heatmap
-│   │       │                         #   returns XAISummary (from api/schemas/prediction.py)
+│   │       │                         #   returns XAISummary (from api/schemas/predictions.py)
 │   │       ├── search_doctors.py     # tool: query doctor directory API
 │   │       ├── search_pharmacy.py    # tool: query pharmacy locator API
 │   │       └── patient_history.py    # tool: read/write patient records
 │   │
-│   ├── federated/
+│   ├── federated/                    # DEFERRED — design & phases: see fedler.md
 │   │   ├── CLAUDE.md                 # ★ Local context: FL strategy
 │   │   ├── __init__.py
-│   │   ├── client.py                 # local training client
-│   │   ├── server.py                 # aggregation server (FedAvg etc.)
-│   │   ├── privacy.py                # differential privacy utilities
-│   │   └── communication.py          # secure model update transport
+│   │   ├── client.py                 # Flower NumPyClient representing ONE HOSPITAL (3 simulated)
+│   │   ├── server.py                 # Flower FedAvg strategy / aggregation
+│   │   ├── privacy.py                # (deferred, fedler Phase 5) Flower DP strategies; OpenDP only if required
+│   │   └── communication.py          # Flower gRPC transport configuration (fedler Phase 3)
+│   │
+│   ├── training/
+│   │   ├── __init__.py
+│   │   └── train_utils.py            # train_one_epoch / evaluate (reused by federated clients; see fedler.md)
 │   │
 │   └── utils/
 │       ├── __init__.py
@@ -116,28 +132,31 @@ skinsure/
 │   │   └── rate_limit.py             # per-user rate limiting
 │   └── schemas/
 │       ├── __init__.py
-│       ├── prediction.py @api/schemas/predictions.py           # ★ UPDATED — full ML pipeline type contract
+│       ├── predictions.py            # full ML pipeline type contract
 │       │                             #   Predictions      — ensemble output
 │       │                             #     · primary_label, primary_confidence
 │       │                             #     · secondary_label, secondary_confidence
 │       │                             #     · agreement_score
 │       │                             #     · confidence_tier() method
-│       │                             #   XAISummary       — explainability output  ★ NEW
+│       │                             #   XAISummary       — explainability output
 │       │                             #     · focus_description
 │       │                             #     · boundary_alignment
 │       │                             #     · artifact_flag
 │       │                             #   ClinicalSummary  — agent output
-│       │                             #     · severity, recommended_action
-│       │                             #     · confidence_caveats, recapture_needed
+│       │                             #     · severity (routine/monitor/urgent), summary, recommended_action
+│       │                             #     · confidence_level, confidence_caveats, recapture_needed
+│       │                             #     · immediate_referral
 │       │                             #     · @model_validator: urgent → immediate_referral
 │       └── patient.py                # PatientMetadata model
-│                                     #   · age, sex, fitzpatrick (IV–VI gate)
-│                                     #   · region, current_season, body_area
+│                                     #   · patient_id, patient_name, patient_age, patient_sex
+│                                     #   · fitzpatrick_type (IV–VI gate)
+│                                     #   · patient_location (region), current_season, body_area
 │                                     #   · symptom_duration, medical_history
+│                                     #   (symptom_duration is stored as symptom_duration_days)
 │
-├── app/                              # frontend (future)
+├── web/                              # website frontend (future)
 │   ├── CLAUDE.md                     # ★ Local context: frontend stack
-│   └── ...                           # React Native / Flutter / Next.js
+│   └── ...                           # framework not yet chosen
 │
 ├── training/
 │   ├── CLAUDE.md                     # ★ Local context: training recipes
@@ -165,11 +184,15 @@ skinsure/
 ├── scripts/
 │   ├── download_datasets.sh          # fetch ISIC / Dermnet / custom data
 │   ├── setup_env.sh                  # environment setup
+│   ├── predict_one.py                # single-image ensemble inference (exists)
+│   ├── summarize_one.py              # single summarizer call (exists)
+│   ├── make_federated_shards.py      # IID / non-IID hospital shard manifests (fedler Phase 1)
 │   └── run_preprocessing.py          # batch preprocessing runner
 │
 ├── configs/
 │   ├── app.yaml                      # app-level config
-│   ├── agents.yaml                   # agent prompts, tool configs
+│   ├── agents.yaml                   # summarizer model, max_tokens, temperature (exists)
+│   ├── models.yaml                   # checkpoint paths + ensemble weights (exists)
 │   └── preprocessing.yaml            # preprocessing pipeline params
 │
 ├── docker/
@@ -187,30 +210,30 @@ skinsure/
 ├── pyproject.toml                    # project deps (uv / poetry)
 ├── Makefile                          # common commands shorthand
 └── README.md
-
+```
 
 ## Import map (what changed)
 
-  api/schemas/prediction.py
+  api/schemas/predictions.py
     exports → Predictions, XAISummary ★, ClinicalSummary
 
   api/schemas/patient.py
     exports → PatientMetadata
 
   src/agents/tools/model_inference.py
-    imports ← Predictions                       (from api/schemas/prediction)
+    imports ← Predictions                       (from api/schemas/predictions)
 
   src/agents/tools/explain_prediction.py
-    imports ← XAISummary ★                      (from api/schemas/prediction)
+    imports ← XAISummary ★                      (from api/schemas/predictions)
     returns → XAISummary instance
 
   src/agents/clinical_summarizer.py
-    imports ← Predictions, XAISummary ★, ClinicalSummary  (from api/schemas/prediction)
+    imports ← Predictions, XAISummary ★, ClinicalSummary  (from api/schemas/predictions)
     imports ← PatientMetadata                   (from api/schemas/patient)
     removed → XAISummary dataclass definition ★
 
   src/agents/severity_triage.py
-    imports ← ClinicalSummary                   (from api/schemas/prediction)
+    imports ← ClinicalSummary                   (from api/schemas/predictions)
 
   src/explainability/report_generator.py
-    imports ← XAISummary ★                      (from api/schemas/prediction)
+    imports ← XAISummary ★                      (from api/schemas/predictions)

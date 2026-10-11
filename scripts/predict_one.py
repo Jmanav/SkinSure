@@ -7,6 +7,7 @@ from PIL import Image
 
 from src.models.ensemble import SkinEnsemble
 from src.preprocessing.inference_transform import preprocess_image
+from src.preprocessing.pipeline import preprocess
 from src.utils.config import get_checkpoint_paths, get_model_config
 
 logger = logging.getLogger(__name__)
@@ -28,8 +29,17 @@ def main() -> None:
 
     ensemble = SkinEnsemble(paths, weights=weights)
 
-    image = Image.open(args.image)
-    image_tensor = preprocess_image(image)
+    pre = preprocess(Image.open(args.image))
+    for warning in pre.quality.warnings:
+        print(f"Warning   : {warning}")
+    if not pre.quality.ok:
+        print("Rejected  :")
+        for reason in pre.quality.reasons:
+            print(f"  - {reason}")
+        return
+    if pre.steps_applied:
+        print(f"Preprocess: {', '.join(pre.steps_applied)}")
+    image_tensor = preprocess_image(pre.image)
 
     predictions = ensemble.predict(image_tensor)
 

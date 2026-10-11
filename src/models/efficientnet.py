@@ -50,7 +50,7 @@ def load_efficientnet_b1(
     model = model.to(device).eval()
     mel = ckpt.get("best_melanoma_sens", float("nan"))
     print(
-        f"✓ EfficientNet-B1 | val={ckpt['best_val_acc']*100:.2f}% "
+        f"[ok] EfficientNet-B1 | val={ckpt['best_val_acc']*100:.2f}% "
         f"test={ckpt['test_acc']*100:.2f}% | mel_sens={mel*100:.1f}%"
     )
     return model, ckpt["classes"]

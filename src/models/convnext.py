@@ -39,7 +39,7 @@ def load_convnext_tiny(
     path: str, device: torch.device
 ) -> tuple[ConvNeXtSkinClassifier, list[str]]:
     """Load a trained ConvNeXt-Tiny checkpoint. Returns (model, classes)."""
-    ckpt = torch.load(path, map_location=device)
+    ckpt = torch.load(path, map_location=device, weights_only=False)
     model = ConvNeXtSkinClassifier(
         num_classes=len(ckpt["classes"]),
         dropout=ckpt["config"]["dropout"],
@@ -50,7 +50,7 @@ def load_convnext_tiny(
     model = model.to(device).eval()
     mel = ckpt.get("best_melanoma_sens", float("nan"))
     print(
-        f"✓ ConvNeXt-Tiny | val={ckpt['best_val_acc']*100:.2f}% "
+        f"[ok] ConvNeXt-Tiny | val={ckpt['best_val_acc']*100:.2f}% "
         f"test={ckpt['test_acc']*100:.2f}% | mel_sens={mel*100:.1f}%"
     )
     return model, ckpt["classes"]

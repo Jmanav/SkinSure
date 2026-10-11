@@ -40,7 +40,7 @@ def load_swin_tiny(
     path: str, device: torch.device
 ) -> tuple[SwinSkinClassifier, list[str]]:
     """Load a trained Swin-Tiny checkpoint. Returns (model, classes)."""
-    ckpt = torch.load(path, map_location=device)
+    ckpt = torch.load(path, map_location=device, weights_only=False)
     model = SwinSkinClassifier(
         model_name=ckpt["config"]["model_name"],
         num_classes=len(ckpt["classes"]),
@@ -52,7 +52,7 @@ def load_swin_tiny(
     model = model.to(device).eval()
     mel = ckpt.get("best_melanoma_sens", float("nan"))
     print(
-        f"✓ Swin-Tiny | val={ckpt['best_val_acc']*100:.2f}% "
+        f"[ok] Swin-Tiny | val={ckpt['best_val_acc']*100:.2f}% "
         f"test={ckpt['test_acc']*100:.2f}% | mel_sens={mel*100:.1f}%"
     )
     return model, ckpt["classes"]

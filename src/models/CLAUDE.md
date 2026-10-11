@@ -13,6 +13,8 @@ Eczema               1,790
 Tinea                1,150  (8% — smallest)
 ```
 
+The list above is ordered by size. The **model index order** is alphabetical (from `ImageFolder`) and identical in all three checkpoints: `0 Basal_Cell_Carcinoma, 1 Eczema, 2 Keratosis, 3 Melanoma, 4 Tinea`.
+
 ## Notebooks
 
 | Notebook | Backbone | timm name | feat_dim | Head norm | Head act |
@@ -85,19 +87,19 @@ without this key still load cleanly.
 
 NPV for Melanoma and BCC is also reported at test time (target ≥ 0.95).
 
-## Converting to .py for ensemble
+## Python modules (done)
 
-When moving notebooks → Python modules, create one file per backbone:
+Inference code lives in one file per backbone, plus the ensemble:
 - `src/models/efficientnet.py` — `EfficientSkinClassifier` + `load_efficientnet_b1(path, device)`
 - `src/models/convnext.py` — `ConvNeXtSkinClassifier` + `load_convnext_tiny(path, device)`
 - `src/models/swin.py` — `SwinSkinClassifier` + `load_swin_tiny(path, device)`
+- `src/models/ensemble.py` — `SkinEnsemble` + `CheckpointPaths`; weights come from `configs/models.yaml`
 
-The load function already exists in each notebook's final cell. Define the class once in the
-`.py` file — do not duplicate between training and load cells as the notebooks currently do.
+**Training still exists only in the notebooks.** Extracting a reusable training loop into `src/training/train_utils.py` is the first step of the federated-learning plan (`fedler.md`, Phase 0).
 
-## agreement_score for ensemble.py
+## agreement_score (implemented in `ensemble.py`)
 
-The `Predictions` schema requires `agreement_score: float`. Agreed definition:
-**fraction of the three models whose top-1 prediction matches the ensemble top-1**.
-Values: 0.33 (one agrees), 0.67 (two agree), 1.0 (all agree).
-Implement this in `ensemble.py` before wiring up the pipeline.
+`Predictions.agreement_score` = **fraction of the three models whose top-1 prediction matches the ensemble top-1**.
+Values: 0.33 (one agrees), 0.67 (two agree), 1.0 (all agree). It can also be **0.0** when the weighted-average winner is not any single model's top-1.
+
+`Predictions.confidence_tier()` maps this to `"high"` (1.0), `"moderate"` (0.67), `"low"` (0.33 or 0.0).

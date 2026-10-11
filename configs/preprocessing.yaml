@@ -1,0 +1,16 @@
+# Quality gate thresholds. Measured on a 1,500-image sample of the raw dataset
+# (see CLAUDE.md "Preprocessing"). Blur is the variance of the Laplacian on a copy whose
+# long side is capped at blur_measure_max_side.
+quality:
+  min_short_side: 200      # reject below this many pixels on the shorter side
+  blur_reject_below: 5.0   # reject: nearly featureless image
+  blur_warn_below: 15.0    # accept, but add a "possibly blurry" warning
+  blur_measure_max_side: 512
+
+# Pixel-changing steps. The models were trained with only resize + ImageNet normalisation,
+# so these are OFF by default. Turn one on only after comparing predictions with and
+# without it on a held-out set.
+steps:
+  remove_hair: false
+  remove_artifacts: false
+  normalize_color: false
