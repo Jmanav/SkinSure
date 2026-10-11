@@ -38,7 +38,7 @@ Last audited 2026-10-10 against the files on disk.
 - Packaging — `pyproject.toml`, `.env.example`, `.gitignore`
 
 **Known gaps:**
-1. No `tests/` directory yet (summarizer, schemas and triage were only checked ad hoc). Triage tests are the highest priority.
+1. `tests/unit/` covers schemas, severity triage (every override branch) and the clinical summarizer (fake client); 74 tests pass. No `tests/integration/` or `tests/fairness/` yet.
 2. `summarize_one.py` has not been run against the real Anthropic API.
 3. Hair and artifact removal are untuned: on 100 unmodified Basal_Cell_Carcinoma images they fired on 33% (hair) and 47% (artifacts); on a test image with dark corners the hair mask covered 57% and the step skipped itself. Both stay off until tuned and compared on a held-out set (only BCC was measured; the run did not finish for other classes).
 4. No pytest tests for the preprocessing modules yet.
@@ -49,7 +49,7 @@ Last audited 2026-10-10 against the files on disk.
 **Not yet created:**
 - `api/main.py`, routes and middleware
 - Preprocessing: `augmentation.py` (training only)
-- `src/explainability/`, `training/`, `tests/`, `docker/`, `.github/`
+- `src/explainability/`, `training/`, `docker/`, `.github/`
 - other planned scripts
 
 **Future scope (deliberately not planned for the core product):**
@@ -60,7 +60,7 @@ Last audited 2026-10-10 against the files on disk.
 
 ## Commands
 
-`pyproject.toml` exists (install with `pip install -e .[dev]`), but `tests/` and `api/main.py` do not yet. Commands, once they exist:
+`pyproject.toml` exists (install with `pip install -e .[dev]`), and `tests/unit/` runs today; `api/main.py` does not exist yet. Commands (some not available yet):
 
 ```bash
 # Run all tests
