@@ -60,7 +60,7 @@ Status: ✅ done · 🟡 partial · ⬜ not started
 | 0 | Project setup & foundations | ✅ | A runnable Python project with dependencies, env vars, and a virtual environment |
 | 0.5 | Pydantic schemas | ✅ | `PatientMetadata` (all clinical fields) + `Predictions` / `XAISummary` / `ClinicalSummary` |
 | 1 | Load the trained model & predict | ✅ | `predict_one.py` runs; verify on a real lesion photo |
-| 2 | Preprocessing pipeline | 🟡 | Built and checked on dataset samples; pytest tests pending; pixel-changing steps off by default |
+| 2 | Preprocessing pipeline | 🟡 | Built, checked on dataset samples, unit-tested on synthetic images; hair/artifact steps untuned and off by default |
 | 3 | Clinical summarizer (LLM layer) | 🟡 | Implemented and tested with a fake client; real-API run and unit tests pending |
 | 4 | Severity triage (the safety layer) | 🟡 | Implemented (3 overrides); pytest tests pending |
 | 5 | Explainability (basic Grad-CAM) | ⬜ | A heatmap showing *where* the model looked |

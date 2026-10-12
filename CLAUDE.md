@@ -39,10 +39,10 @@ Last audited 2026-10-10 against the files on disk.
 - Packaging — `pyproject.toml`, `.env.example`, `.gitignore`
 
 **Known gaps:**
-1. `tests/unit/` covers schemas, severity triage (every override branch) and the clinical summarizer (fake client); 74 tests pass. No `tests/integration/` or `tests/fairness/` yet.
+1. `tests/unit/` covers schemas, severity triage (every override branch), the clinical summarizer (fake client), the orchestrator and preprocessing; `tests/integration/` covers `/predict` and `/health` with fakes. 131 tests pass. No `tests/fairness/` yet. Nothing in the suite touches the real LLM, a real photo, or real-data accuracy.
 2. `summarize_one.py` has not been run against the real Anthropic API.
 3. Hair and artifact removal are untuned: on 100 unmodified Basal_Cell_Carcinoma images they fired on 33% (hair) and 47% (artifacts); on a test image with dark corners the hair mask covered 57% and the step skipped itself. Both stay off until tuned and compared on a held-out set (only BCC was measured; the run did not finish for other classes).
-4. No pytest tests for the preprocessing modules yet.
+4. Preprocessing is unit-tested on synthetic images only (gate boundaries, guards, step order, defaults off). Those tests pin behaviour; they say nothing about tuning on real images (see gap 3).
 5. `predict_one.py` was run once on a synthetic image (`scratch_test_image.png`): checkpoints load and it prints predictions. Not yet checked on a real lesion photo.
 
 **Empty stubs (0 bytes):** `treatment_advisor.py`, `doctor_referral.py`, `pharmacy_locator.py`; `src/CLAUDE.md`, `src/agents/CLAUDE.md`; `docs/indian_skin_tones.md` (domain knowledge still to be written). `src/agents/tools/` is an empty directory.

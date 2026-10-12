@@ -19,7 +19,7 @@ def shades_of_gray(image: Image.Image, power: float = 6.0) -> StepResult:
     illuminant = np.power(np.mean(np.power(arr, power), axis=(0, 1)), 1.0 / power)
     illuminant = np.maximum(illuminant, 1e-6)
     gain = illuminant.mean() / illuminant            # per-channel gain, mean brightness kept
-    out = np.clip(arr * gain, 0, 255).astype(np.uint8)
+    out = np.rint(np.clip(arr * gain, 0, 255)).astype(np.uint8)  # round: astype alone truncates
     return StepResult(
         Image.fromarray(out), True,
         f"channel gains R={gain[0]:.2f} G={gain[1]:.2f} B={gain[2]:.2f}",
