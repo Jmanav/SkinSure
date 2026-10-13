@@ -25,7 +25,7 @@ If a doc disagrees with this file or with `fedler.md`, fix the doc. When code ch
 
 ## Current Implementation State
 
-Last audited 2026-10-10 against the files on disk.
+Last audited 2026-10-13 against the files on disk.
 
 **Implemented:**
 - Schemas — `api/schemas/patient.py` (`PatientMetadata`, Fitzpatrick IV–VI gate) and `api/schemas/predictions.py` (`Predictions`, `XAISummary`, `Severity`, `ConfidenceLevel`, `ClinicalSummary`; validator enforces `urgent → immediate_referral`)
@@ -34,23 +34,26 @@ Last audited 2026-10-10 against the files on disk.
 - `scripts/predict_one.py` — single-image inference through the preprocessing pipeline (works)
 - Clinical summarizer — `src/agents/clinical_summarizer.py` (`build_context`, async `summarize`, post-processing); demo in `scripts/summarize_one.py`
 - Severity triage — `src/agents/severity_triage.py` (`triage(predictions, summary, patient) -> TriageResult`; all three hard overrides)
-- Orchestrator and API — `src/agents/orchestrator.py` (`run_screening(image, patient, *, ensemble, explainer, client) -> ScreeningResult`: quality gate → ensemble → explainer → summarizer → triage; statuses `completed` / `rejected` / `blocked`; `treatment_advice_allowed` is False for urgent, referral and re-capture cases) and `api/main.py` (`create_app(ensemble, explainer, client)`; `GET /health`, `POST /predict` taking a multipart `image` + `metadata` JSON string). The **explainer is injected and has no default**: Grad-CAM lives outside the repo for now, so `/predict` returns 503 until one is passed to `create_app`.
+- Orchestrator and API — `src/agents/orchestrator.py` (`run_screening(image, patient, *, ensemble, explainer, client) -> ScreeningResult`: quality gate → ensemble → explainer → summarizer → triage; statuses `completed` / `rejected` / `blocked`; `treatment_advice_allowed` is False for urgent, referral and re-capture cases) and `api/main.py` (`create_app(ensemble, explainer, client)`; `GET /health`, `POST /predict` taking a multipart `image` + `metadata` JSON string). The explainer is injected; when the ensemble is a real `SkinEnsemble` and none is passed, `create_app` defaults to `GradCamExplainer`. With no explainer available `/predict` returns 503 rather than invent explainability data.
+- Explainability — `src/explainability/`: `gradcam.py` (`grad_cam`, `ensemble_heatmap`; per-backbone target layers `bn2` / `stages[-1]` / `layers[-1]`, Swin is NHWC), `xai_summary.py` (`summarize_heatmap` heatmap → `XAISummary`, `estimate_lesion_mask`), `explainer.py` (`GradCamExplainer`, the app's default), `evaluation.py` (deletion curve / AOPC for any heatmap); `scripts/evaluate_xai.py` compares Grad-CAM with external heatmaps (e.g. SHAP `.npy`) and a random baseline under one procedure
 - Config — `src/utils/config.py` (`get_settings()` for `configs/agents.yaml`; `get_model_config()` / `get_checkpoint_paths()` for `configs/models.yaml`; `get_preprocessing_config()` for `configs/preprocessing.yaml`), `configs/agents.yaml`, `configs/models.yaml` (checkpoint paths and ensemble weights)
 - Packaging — `pyproject.toml`, `.env.example`, `.gitignore`
 
 **Known gaps:**
-1. `tests/unit/` covers schemas, severity triage (every override branch), the clinical summarizer (fake client), the orchestrator and preprocessing; `tests/integration/` covers `/predict` and `/health` with fakes. 131 tests pass. No `tests/fairness/` yet. Nothing in the suite touches the real LLM, a real photo, or real-data accuracy.
+1. `tests/unit/` covers schemas, severity triage (every override branch), the clinical summarizer (fake client), the orchestrator, preprocessing and explainability (toy models and synthetic scenes); `tests/integration/` covers `/predict` and `/health` with fakes, plus one real-checkpoint run (skipped when checkpoints are absent). 158 tests pass. No `tests/fairness/` yet. Nothing in the suite touches the real LLM, a real lesion photo, or real-data accuracy.
 2. `summarize_one.py` has not been run against the real Anthropic API.
 3. Hair and artifact removal are untuned: on 100 unmodified Basal_Cell_Carcinoma images they fired on 33% (hair) and 47% (artifacts); on a test image with dark corners the hair mask covered 57% and the step skipped itself. Both stay off until tuned and compared on a held-out set (only BCC was measured; the run did not finish for other classes).
 4. Preprocessing is unit-tested on synthetic images only (gate boundaries, guards, step order, defaults off). Those tests pin behaviour; they say nothing about tuning on real images (see gap 3).
-5. `predict_one.py` was run once on a synthetic image (`scratch_test_image.png`): checkpoints load and it prints predictions. Not yet checked on a real lesion photo.
+5. `predict_one.py` and the Grad-CAM explainer were run on a synthetic image only (`scratch_test_image.png`): checkpoints load, all three backbones produce valid maps (about 2.3 s per ensemble explanation on the dev CPU, one run). Not yet checked on a real lesion photo.
+6. The heatmap → `XAISummary` bridge is **heuristic and unvalidated**: thresholds are first guesses and the lesion outline is a brightness segmentation, not a trained segmenter. Fields fall back to `unknown` when evidence is missing. It needs tuning against annotated lesion masks before `boundary_alignment` / `focus_description` are trusted; the artifact flag forces re-capture, so false flags cost patients a retake.
+7. Grad-CAM vs SHAP faithfulness has **not been measured**: `scripts/evaluate_xai.py` exists but has not been run on a held-out set. The teammate's SHAP work is on branch `xai-shap` of `MohammedAli-Fatteh/SkinSure` (two Colab notebooks, not importable, not merged here); its AOPC numbers used a different blanking baseline in each notebook, so they are not directly comparable until re-scored with `evaluate_xai.py`.
 
 **Empty stubs (0 bytes):** `treatment_advisor.py`, `doctor_referral.py`, `pharmacy_locator.py`; `src/CLAUDE.md`, `src/agents/CLAUDE.md`; `docs/indian_skin_tones.md` (domain knowledge still to be written). `src/agents/tools/` is an empty directory.
 
 **Not yet created:**
 - `GET /history`, `POST /history`, `POST /explain`; auth, rate limiting and middleware
 - Preprocessing: `augmentation.py` (training only)
-- `src/explainability/`, `training/`, `docker/`, `.github/`
+- `training/`, `docker/`, `.github/`
 - other planned scripts
 
 **Future scope (deliberately not planned for the core product):**
@@ -73,7 +76,7 @@ pytest tests/unit/test_clinical_summarizer.py
 # Run with fairness audit
 pytest tests/fairness/test_skin_tone_bias.py
 
-# Start API dev server (/predict answers 503 until an explainer is supplied)
+# Start API dev server (loads the real checkpoints at startup)
 uvicorn api.main:app --reload
 
 # Training (top-level training/ directory, once created)
@@ -86,6 +89,7 @@ Works today:
 ```bash
 python scripts/predict_one.py <image>     # ensemble prediction
 python scripts/summarize_one.py          # needs ANTHROPIC_API_KEY in .env; calls the real API
+python scripts/evaluate_xai.py <image_dir> [--heatmap-dir DIR]   # deletion/AOPC: Grad-CAM vs external heatmaps vs random
 ```
 
 ---
@@ -100,7 +104,7 @@ python scripts/summarize_one.py          # needs ANTHROPIC_API_KEY in .env; call
 
 `Predictions` labels are the `DiseaseClass` enum (exact checkpoint strings: `Basal_Cell_Carcinoma`, `Eczema`, `Keratosis`, `Melanoma`, `Tinea`); confidences and `agreement_score` are bounded 0–1, and the secondary label must differ from the primary with confidence ≤ primary. `SkinEnsemble` refuses checkpoints whose classes are not exactly that set.
 
-`XAISummary` fields: `focus_description` (`FocusRegion` enum: `lesion_centre`, `lesion_border`, `diffuse`, `background_skin`, `artifact`), `boundary_alignment` (`BoundaryAlignment`: `good`, `partial`, `poor`), `artifact_flag`. A validator requires `artifact_flag=True` when focus is `artifact`.
+`XAISummary` fields: `focus_description` (`FocusRegion` enum: `lesion_centre`, `lesion_border`, `diffuse`, `background_skin`, `artifact`, `unknown`), `boundary_alignment` (`BoundaryAlignment`: `good`, `partial`, `poor`, `unknown`), `artifact_flag`. A validator requires `artifact_flag=True` when focus is `artifact`.
 
 `Predictions.confidence_tier()` maps `agreement_score` (a fraction of 3 models: 0 / 0.33 / 0.67 / 1.0) to `"high"` (all three agree) / `"moderate"` (two agree) / `"low"` (otherwise) — use this method rather than replicating the threshold logic.
 
@@ -208,10 +212,10 @@ Classes (5), in model index order (alphabetical, as stored in each checkpoint's 
 
 Severity triage hard overrides (`triage(predictions, summary, patient) -> TriageResult`; thresholds 0.40 in `severity_triage.py`): melanoma at any moderate+ confidence → `urgent`; model confidence < 40% → block, request re-capture; rapidly spreading infection (`patient.is_spreading_rapidly` and an infection class — currently Tinea) → `urgent`. Rules only escalate or block, never downgrade; escalation and the infection rule are skipped when the result is blocked. Urgent cases must never receive self-treatment advice (the router suppresses the treatment advisor).
 
-### xAI (`src/explainability/` — planned)
+### xAI (`src/explainability/`)
 
-- **Grad-CAM / Grad-CAM++** — spatial heatmap converted to `XAISummary` (focus, boundary alignment, artifact flag) before reaching the summarizer
-- **SHAP** — feature-level patch attribution
+- **Grad-CAM** — **implemented**: per-backbone maps averaged with the ensemble weights, converted to `XAISummary` (focus, boundary alignment, artifact flag) before reaching the summarizer. Grad-CAM++ is not implemented.
+- **SHAP** — feature-level patch attribution (planned in-repo; prototype notebooks exist on the teammate's `xai-shap` branch; intended for `/explain`, not the `/predict` path)
 - **LIME** — superpixel local explanations; validates model attends to lesion, not background
 
 ### API endpoints (planned)

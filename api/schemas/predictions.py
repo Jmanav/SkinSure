@@ -49,6 +49,7 @@ class FocusRegion(str, Enum):
     DIFFUSE = "diffuse"                  # spread over the image, no clear focus
     BACKGROUND_SKIN = "background_skin"  # healthy skin away from the lesion
     ARTIFACT = "artifact"                # ruler / ink / bubble / hair
+    UNKNOWN = "unknown"                  # could not be determined (no usable heatmap / lesion mask)
 
 
 class BoundaryAlignment(str, Enum):
@@ -56,6 +57,7 @@ class BoundaryAlignment(str, Enum):
     GOOD = "good"
     PARTIAL = "partial"
     POOR = "poor"
+    UNKNOWN = "unknown"                  # no reliable lesion outline to compare against
 
 
 class XAISummary(BaseModel):

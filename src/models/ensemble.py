@@ -80,6 +80,16 @@ class SkinEnsemble:
             *self._weights,
         )
 
+    @property
+    def backbones(self) -> dict[str, _AnyModel]:
+        """The three loaded models by name (used by the explainability layer)."""
+        return {"efficientnet": self._eff, "convnext": self._cnxt, "swin": self._swin}
+
+    @property
+    def weights(self) -> tuple[float, ...]:
+        """Normalised ensemble weights, in `backbones` order."""
+        return self._weights
+
     @torch.no_grad()
     #Normally, every tensor op records how to compute gradients for backpropagation. During inference you never call .backward(), so that bookkeeping is pure waste — no_grad() turns it off, which cuts memory use and speeds up the forward pass. It's standard practice on any method that only runs inference, like predict() here
     def predict(self, image_tensor: torch.Tensor) -> Predictions:

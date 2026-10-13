@@ -14,6 +14,7 @@ from api.schemas.patient import PatientMetadata
 from api.schemas.predictions import ScreeningStatus
 from api.schemas.responses import PredictResponse
 from src.agents.orchestrator import Explainer, Predictor, run_screening
+from src.explainability.explainer import GradCamExplainer
 
 logger = logging.getLogger(__name__)
 
@@ -38,14 +39,21 @@ def create_app(
 ) -> FastAPI:
     """Build the app. Dependencies are injectable so tests never load checkpoints or call the API.
 
-    `explainer` has no default: until the Grad-CAM implementation is supplied, /predict
-    answers 503 rather than inventing explainability data for a clinical summary.
+    `explainer` defaults to `GradCamExplainer` when the ensemble is a real `SkinEnsemble`.
+    If no explainer can be built, /predict answers 503 rather than inventing explainability
+    data for a clinical summary.
     """
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        app.state.ensemble = ensemble or await asyncio.to_thread(_load_ensemble)
-        app.state.explainer = explainer
+        loaded = ensemble or await asyncio.to_thread(_load_ensemble)
+        app.state.ensemble = loaded
+        # Default: Grad-CAM on the real ensemble. Test doubles without `backbones` get none,
+        # so /predict still answers 503 for them unless an explainer is injected.
+        if explainer is None and hasattr(loaded, "backbones"):
+            app.state.explainer = GradCamExplainer(loaded)
+        else:
+            app.state.explainer = explainer
         app.state.client = client
         yield
 

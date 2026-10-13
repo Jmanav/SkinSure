@@ -28,7 +28,7 @@ A ⭐ marks the single most important thing to get right in that phase.
 
 ---
 
-## Current codebase status (audited 2026-10-10)
+## Current codebase status (audited 2026-10-13)
 
 > Source of truth for state is `CLAUDE.md` → "Current Implementation State". Summary as of this audit:
 
@@ -37,15 +37,18 @@ A ⭐ marks the single most important thing to get right in that phase.
 - **Model layer** — `src/models/ensemble.py`, `efficientnet.py`, `convnext.py`, `swin.py`; checkpoints in `models/checkpoints/`; training/eval notebooks in `src/models/`.
 - **Preprocessing** — `src/preprocessing/` (`quality_check.py`, `hair_removal.py`, `artifact_removal.py`, `color_normalization.py`, `pipeline.py`, `inference_transform.py`), configured in `configs/preprocessing.yaml`; `predict_one.py` runs it first. Pixel-changing steps are off by default.
 - **Clinical summarizer** — `src/agents/clinical_summarizer.py` with post-processing, plus `scripts/summarize_one.py`. Tested with a fake client; not yet run against the real API.
+- **Explainability** — `src/explainability/` (Grad-CAM per backbone and ensemble, heatmap → `XAISummary` bridge, `GradCamExplainer`, deletion/AOPC evaluation); the bridge heuristics are unvalidated.
+- **Orchestrator & API** — `src/agents/orchestrator.py`, `api/main.py` (`/predict`, `/health`).
 - **Config & packaging** — `src/utils/config.py` + `configs/agents.yaml`, `configs/models.yaml`, `pyproject.toml`, `.env.example`.
 
 **Known gaps (next iteration):**
-- No `tests/` yet.
-- `summarize_one.py` not yet run against the real API; `predict_one.py` only run on a synthetic image.
+- No `tests/fairness/` yet.
+- `summarize_one.py` not yet run against the real API; `predict_one.py` and Grad-CAM only run on a synthetic image.
+- Grad-CAM vs SHAP faithfulness not measured yet (`scripts/evaluate_xai.py` is ready).
 
 **Empty files (0 bytes):** agent stubs `treatment_advisor.py`, `doctor_referral.py`, `pharmacy_locator.py`, `docs/indian_skin_tones.md`, `src/CLAUDE.md`, `src/agents/CLAUDE.md`, and the `src/agents/tools/` directory.
 
-**Not created yet:** `/explain` and `/history` routes; `augmentation.py`; `tests/fairness/`, `scripts/` beyond `predict_one.py` / `summarize_one.py`, `docker/`, `.github/`, `src/explainability/`, `src/federated/`, `training/`.
+**Not created yet:** `/explain` and `/history` routes; `augmentation.py`; `tests/fairness/`, `docker/`, `.github/`, `src/federated/`, `training/`.
 
 **Future scope:** `skin_tone_classifier.py` (image-based Fitzpatrick detection). Federated learning and differential privacy are deferred (`fedler.md`).
 
@@ -63,7 +66,7 @@ Status: ✅ done · 🟡 partial · ⬜ not started
 | 2 | Preprocessing pipeline | 🟡 | Built, checked on dataset samples, unit-tested on synthetic images; hair/artifact steps untuned and off by default |
 | 3 | Clinical summarizer (LLM layer) | 🟡 | Implemented and tested with a fake client; real-API run and unit tests pending |
 | 4 | Severity triage (the safety layer) | 🟡 | Implemented (3 overrides); pytest tests pending |
-| 5 | Explainability (basic Grad-CAM) | ⬜ | A heatmap showing *where* the model looked |
+| 5 | Explainability (basic Grad-CAM) | 🟡 | Grad-CAM + `XAISummary` bridge built and tested on toy/synthetic input; bridge thresholds and real-image behaviour unvalidated |
 | 6 | The API (FastAPI) | 🟡 | HTTP endpoints: send an image, get a clinical summary back |
 | 7 | Testing & fairness audit | ⬜ | Automated tests, including per-skin-tone accuracy checks |
 | 8 | Containerization (Docker) | ⬜ | The whole app running inside a reproducible container |
@@ -243,7 +246,7 @@ Status: ✅ done · 🟡 partial · ⬜ not started
 
 ---
 
-## Phase 5 — Explainability (basic Grad-CAM)  ⬜ not started
+## Phase 5 — Explainability (basic Grad-CAM)  🟡 built; bridge heuristics and real-image behaviour unvalidated
 
 **Goal:** Produce a heatmap showing which part of the image drove the prediction, and convert it into the `XAISummary` the summarizer consumes.
 

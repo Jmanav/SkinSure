@@ -46,6 +46,11 @@ def _ruler_mask(rgb: np.ndarray) -> np.ndarray:
     return mask
 
 
+def artifact_mask(rgb: np.ndarray) -> np.ndarray:
+    """Combined ink + glare + ruler mask (uint8, 255 = artifact) for an RGB array."""
+    return _ink_mask(rgb) | _glare_mask(rgb) | _ruler_mask(rgb)
+
+
 def remove_artifacts(image: Image.Image, inpaint_radius: int = 3) -> StepResult:
     """Remove pen ink, bubbles/glare and ruler lines by inpainting.
 
@@ -54,7 +59,7 @@ def remove_artifacts(image: Image.Image, inpaint_radius: int = 3) -> StepResult:
     is skipped. Runs before colour normalisation because the ink detector relies on colour.
     """
     rgb = np.asarray(image.convert("RGB"))
-    mask = _ink_mask(rgb) | _glare_mask(rgb) | _ruler_mask(rgb)
+    mask = artifact_mask(rgb)
 
     fraction = float((mask > 0).mean())
     if fraction == 0:
