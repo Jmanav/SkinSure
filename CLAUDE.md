@@ -53,7 +53,7 @@ Last audited 2026-10-13 against the files on disk.
 **Not yet created:**
 - `GET /history`, `POST /history`, `POST /explain`; auth, rate limiting and middleware
 - Preprocessing: `augmentation.py` (training only)
-- `training/`, `docker/`, `.github/`
+- `src/training/`, `docker/`, `.github/`, `data/splits/`
 - other planned scripts
 
 **Future scope (deliberately not planned for the core product):**
@@ -79,9 +79,9 @@ pytest tests/fairness/test_skin_tone_bias.py
 # Start API dev server (loads the real checkpoints at startup)
 uvicorn api.main:app --reload
 
-# Training (top-level training/ directory, once created)
-python training/train.py --config training/configs/ensemble.yaml
-python training/evaluate.py --fairness-audit
+# Training (src/training/, once created)
+python -m src.training.train --config src/training/configs/ensemble.yaml
+python -m src.training.evaluate --fairness-audit
 ```
 
 Works today:

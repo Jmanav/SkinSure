@@ -48,7 +48,7 @@ A ⭐ marks the single most important thing to get right in that phase.
 
 **Empty files (0 bytes):** agent stubs `treatment_advisor.py`, `doctor_referral.py`, `pharmacy_locator.py`, `docs/indian_skin_tones.md`, `src/CLAUDE.md`, `src/agents/CLAUDE.md`, and the `src/agents/tools/` directory.
 
-**Not created yet:** `/explain` and `/history` routes; `augmentation.py`; `tests/fairness/`, `docker/`, `.github/`, `src/federated/`, `training/`.
+**Not created yet:** `/explain` and `/history` routes; `augmentation.py`; `tests/fairness/`, `docker/`, `.github/`, `src/federated/`, `src/training/`, `data/splits/`.
 
 **Future scope:** `skin_tone_classifier.py` (image-based Fitzpatrick detection). Federated learning and differential privacy are deferred (`fedler.md`).
 
@@ -122,7 +122,7 @@ Status: ✅ done · 🟡 partial · ⬜ not started
 ### Build
 1. `api/schemas/patient.py` — `PatientMetadata` with the **Fitzpatrick IV–VI gate**: a validator that rejects skin types I–III with a clear error *before* anything reaches the model. Fields: `patient_id`, `patient_name`, `patient_age`, `patient_sex`, `fitzpatrick_type`, `patient_location`, `current_season`, `body_area`, `symptom_duration_days`, `medical_history`, `is_spreading_rapidly`.
 2. `api/schemas/predictions.py`:
-   - `Predictions` — per-class probabilities, top class, `agreement_score`, and a `confidence_tier()` method mapping `agreement_score` → `"high"/"moderate"/"low"` (≥0.80 / ≥0.70 / <0.70). **Must match what `ensemble.py` constructs** — read `ensemble.py` to see exactly which fields it sets.
+   - `Predictions` — per-class probabilities, top class, `agreement_score`, and a `confidence_tier()` method mapping `agreement_score` → `"high"` (1.0 — all three agree) / `"moderate"` (0.67 — two agree) / `"low"` (0.33 or 0.0). **Must match what `ensemble.py` constructs** — read `ensemble.py` to see exactly which fields it sets.
    - `XAISummary` — `focus_description`, `boundary_alignment`, `artifact_flag` (consumed by the summarizer in Phase 3).
    - `ClinicalSummary` — `severity`, `summary`, `recommended_action`, `confidence_level`, `confidence_caveats`, `recapture_needed`, `immediate_referral`, with a `@model_validator` enforcing `urgent → immediate_referral` at the schema level.
 

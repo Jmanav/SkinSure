@@ -124,6 +124,22 @@ Colab notebooks (`src/models/*.ipynb`).
   relate.
 - Time: 2–3 hours if you skim your own notebooks with this lens.
 
+### Pre-requisite: canonical data splits
+
+Before extracting the training loop, create canonical train/val/test split
+manifests in `data/splits/`. The Colab notebooks used their own internal splits
+that aren't recorded in the repo. To reproduce the centralized baseline and
+later compare it fairly against federated training, you need a single fixed
+split:
+
+1. Hold out **~15% of the full dataset as a global test set** (stratified by
+   class). This test set is never seen during any training — centralized or
+   federated — and is the common benchmark for comparing them.
+2. The remaining ~85% is the trainable pool. In centralized mode it splits
+   further into train/val; in federated mode Phase 1 shards it across hospitals
+   (each hospital gets its own local train/val split from its shard).
+3. Save as `data/splits/global_test.csv`, `data/splits/trainable_pool.csv`.
+
 ### Build
 Port **one** backbone's training loop out of its notebook into a plain module,
 `src/training/train_utils.py`:
@@ -142,8 +158,10 @@ later (Phase 4) — don't parallelize all three backbones through FL on your
 first pass.
 
 **Checkpoint before moving on:** `train_one_epoch` + `evaluate` run standalone
-against your existing (non-sharded) training data and roughly reproduce the
-centrally-trained checkpoint's val_acc.
+against the trainable pool (with a local train/val split) and roughly reproduce
+the centrally-trained checkpoint's val_acc. Evaluate on the global test set to
+establish the **centralized baseline** — this is the number federated training
+must approach.
 
 ---
 
@@ -175,9 +193,9 @@ centrally-trained checkpoint's val_acc.
 - Time: half a day.
 
 ### Build
-Split your curated dataset into N=3 shards (one per simulated hospital) to
-simulate hospital-held data. Class counts are already recorded in
-`src/models/CLAUDE.md`.
+Split the **trainable pool** (from Phase 0's `data/splits/trainable_pool.csv`)
+into N=3 shards (one per simulated hospital). The global test set is never
+included in any shard — it stays untouched for evaluation.
 
 Write this as `scripts/make_federated_shards.py`, outputting shard manifests
 (lists of image paths + labels) — not new copies of the image files. Build
@@ -191,9 +209,10 @@ Write this as `scripts/make_federated_shards.py`, outputting shard manifests
    - Hospital C: mixed (multi-specialty hospital)
 
    Non-IID skew should be calibrated so every shard stays above the **200
-   images per disease** floor. If a disease can't meet this floor in a given
-   shard under the desired skew, relax the skew for that disease in that shard
-   — don't let a principled simulation produce shards too small to train on.
+   images per disease** floor. For the smallest classes (Tinea at ~978 in the
+   trainable pool, Eczema at ~1,522), the skew between hospitals will be mild —
+   accept this rather than forcing dramatic skew that starves a shard. The
+   non-IID character comes primarily from the larger classes (Melanoma, BCC).
 
 Each shard is a stand-in for one hospital's local dataset. The simulation does
 not model how hospitals acquire data (patient intake, doctor labeling, dataset
@@ -213,10 +232,15 @@ for learning, since it removes the networking/serialization boilerplate and lets
 you focus on the ML.
 
 ### Learn
-- **Concepts specific to Flower**: `ClientApp`, `ServerApp`, `Strategy` (FedAvg is
-  one built-in `Strategy` class), `NumPyClient` (the class you subclass to wrap
-  your PyTorch model), simulation mode (`flwr.simulation` — runs many virtual
-  clients in one Python process, which is exactly what you want to start with).
+- **Concepts specific to Flower's current API** (1.x+): `ClientApp`, `ServerApp`,
+  `Strategy` (FedAvg is one built-in `Strategy` class), `flwr.client.NumPyClient`
+  (the class you subclass to wrap your PyTorch model), and `flwr run` (the CLI
+  entry point that replaces the old `start_server`/`start_client` calls).
+  Simulation mode runs many virtual clients in one Python process, which is
+  exactly what you want to start with.
+- **Use the new Flower API throughout** (`ClientApp`/`ServerApp` + `flwr run`),
+  not the legacy `start_server`/`start_client` pattern. The legacy API is being
+  deprecated and most new tutorials target the new one.
 - **Do the official Flower PyTorch quickstart tutorial** end to end, unmodified,
   before touching SkinSure code. It trains a small CNN on CIFAR-10 across
   simulated clients — the point is to see a *working* FL loop before adapting
@@ -236,13 +260,17 @@ you focus on the ML.
    `List[np.ndarray]` format, `fit()` calls Phase 0's `train_one_epoch` on that
    client's shard, `evaluate()` calls Phase 0's `evaluate`.
 4. Build `src/federated/server.py`: configure the `FedAvg` strategy (num rounds,
-   fraction of clients per round, local epochs per round).
-5. Run `flwr.simulation.run_simulation` with N=3 virtual clients (one per hospital) on your Phase 1 shards, on your one machine.
+   fraction of clients per round, local epochs per round) and wrap it in a
+   `ServerApp`.
+5. Build a `ClientApp` in `client.py` that instantiates the `NumPyClient`.
+6. Run with `flwr run` in simulation mode with N=3 virtual clients (one per
+   hospital) on your Phase 1 shards, on your one machine.
 
 **Success criterion:** after several rounds, the federated-trained model's
-val_acc and melanoma_sensitivity on a held-out test set approach what the
-centrally-trained checkpoint achieved. This gap is the real quantity of
-interest — federated will likely be slightly worse; the question is how much.
+val_acc and melanoma_sensitivity **on the global test set** (held out in
+Phase 0, never seen by any client) approach the centralized baseline from
+Phase 0. This gap is the real quantity of interest — federated will likely be
+slightly worse; the question is how much.
 
 **Key metric to track per round:**
 - Global model val_acc and melanoma_sensitivity (the numbers that matter)
@@ -269,17 +297,19 @@ here — the ML logic from Phase 2 doesn't change — so this phase is almost pu
 build.
 
 ### Learn
-- What actually differs between `flwr.simulation` and real
-  `start_server`/`start_client` processes (mainly: processes start
-  independently and can drop mid-round, instead of everything living in one
-  Python process you fully control).
+- What actually differs between simulation mode and real multi-process
+  deployment (mainly: processes start independently and can drop mid-round,
+  instead of everything living in one Python process you fully control).
+- How `flwr run` with the `--superlink` flag (or Flower's deployment engine)
+  manages multi-process topologies.
 
 ### Build
-- `flwr.server.start_server` in one process/terminal.
-- Each simulated hospital as its own process running `flwr.client.start_client`,
-  pointed at `localhost:<port>`.
-- This is where `communication.py` (named in `docs/architecture.md`) becomes real — likely
-  just Flower's gRPC transport configuration, not custom networking code.
+- Run the `ServerApp` in one process/terminal.
+- Each simulated hospital as its own process running its `ClientApp`, connecting
+  to the server via Flower's gRPC transport (built into `flwr run`).
+- No custom `communication.py` is needed — Flower handles gRPC transport out of
+  the box. Only create a communication module if a specific networking
+  requirement surfaces later.
 - Add config for how many clients must be online to start a round, and confirm
   the system tolerates a client dropping mid-round (a hospital's server going
   offline temporarily should not break the training round for everyone else).
@@ -291,13 +321,24 @@ build.
 Repeat Phase 2–3 for ConvNeXt-Tiny and Swin-Tiny once EfficientNet's federated
 pipeline is proven.
 
+### Design decision: independent FL per backbone
+
+Each backbone (EfficientNet, ConvNeXt, Swin) is a standalone classifier with
+its own `state_dict`. The ensemble is just a weighted average of their softmax
+outputs at inference time — there are no shared parameters and no joint training.
+This means each backbone federates independently: 3 separate FL jobs (one per
+backbone), each running FedAvg over its own model weights. The ensemble weights
+in `configs/models.yaml` remain an inference-time concern and do not participate
+in FL aggregation.
+
 ### Build
 - Reuse Phase 0's approach to port each backbone's training loop into
   `src/training/train_utils.py`.
-- Reuse Phase 2/3's client/server code, swapping in the new backbone.
-- Decide whether all three run as separate federated jobs (3x the rounds) or
-  whether there's a shared client harness parameterized by backbone — decide
-  this once the duplication is visible in code, not before.
+- Reuse Phase 2/3's `ClientApp`/`ServerApp` code, parameterized by backbone
+  (pass the backbone name as config so the same client code loads the right
+  model class).
+- Run all three FL jobs and evaluate each backbone's global test set performance
+  independently, then combine via the existing ensemble at inference.
 
 ---
 
@@ -314,15 +355,14 @@ aggressive," so a noise-free baseline needs to exist first.
   more noise, worse accuracy.
 - **DP-SGD**: the standard way to add DP to neural net training (clip
   per-example gradients, add noise, then average).
-- **OpenDP**: the library
-  you'd use to implement this without hand-rolling the noise mechanisms.
 
 ### Build
 - Wrap the working `FedAvg` strategy with Flower's built-in DP strategy classes
   (`DifferentialPrivacyServerSideFixedClipping`, etc.) — this is additive, not a
-  rewrite.
-- Introduce OpenDP into `src/federated/privacy.py` only if Flower's built-in DP
-  doesn't satisfy whatever DPDP Act compliance review ends up requiring.
+  rewrite. Flower's built-in DP covers the standard use case; only introduce an
+  external library (e.g. OpenDP) if a specific DPDP Act compliance requirement
+  surfaces that Flower's DP cannot satisfy.
+- `src/federated/privacy.py` wraps the DP configuration and epsilon tracking.
 - **Critical experiment:** measure melanoma_sensitivity at different epsilon
   values. If DP noise at reasonable epsilon (ε ≤ 8) causes melanoma_sensitivity
   to drop below clinically acceptable thresholds, document this tradeoff
@@ -341,11 +381,13 @@ aggressive," so a noise-free baseline needs to exist first.
 - No training `.py` files yet — training only exists in Colab notebooks
   (`src/models/*.ipynb`). This is the biggest gap Phase 0 closes.
 - `src/federated/` doesn't exist yet — `docs/architecture.md` lists it as planned
-  (`client.py`, `server.py`, `privacy.py`, `communication.py`) but there's
-  nothing there until Phase 2.
-- No `flwr` or `opendp` in `pyproject.toml` yet.
+  (`client.py`, `server.py`, `privacy.py`) but there's nothing there until
+  Phase 2. No `communication.py` — Flower handles gRPC transport natively.
+- No `flwr` in `pyproject.toml` yet.
 - **Dataset:** ~14,500 images curated from public datasets, 5 diseases, skewed
-  toward Melanoma. Per-class counts are in `src/models/CLAUDE.md`.
+  toward Melanoma. Per-class counts are in `src/models/CLAUDE.md`. No canonical
+  train/val/test split manifests exist yet — Phase 0 creates them, holding out
+  ~15% as a global test set before any sharding.
 - **No hospital partnerships yet.** The FL pipeline is a simulation designed
   to convince hospitals to participate. The code is structured so real hospital
   clients can replace simulated shards without architectural changes.
@@ -367,8 +409,9 @@ aggressive," so a noise-free baseline needs to exist first.
 
 ## Suggested order of work from here
 
-1. Phase 0: learn training-loop fundamentals, then extract EfficientNet-B1's
-   training loop into `src/training/train_utils.py`.
+1. Phase 0: create canonical data splits (`data/splits/`), learn training-loop
+   fundamentals, then extract EfficientNet-B1's training loop into
+   `src/training/train_utils.py` and establish the centralized baseline.
 2. Phase 1: learn FL/FedAvg core concepts, then write `make_federated_shards.py`
    with both IID and non-IID strategies for 3 hospitals.
 3. Phase 2: learn Flower basics (run the official quickstart first), then build

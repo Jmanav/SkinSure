@@ -35,10 +35,9 @@ skinsure/
 │   ├── processed/                    # preprocessed images (gitignored)
 │   ├── metadata/                     # patient metadata schemas & samples
 │   │   └── schema.json
-│   ├── splits/                       # train/val/test split manifests
-│   │   ├── train.csv
-│   │   ├── val.csv
-│   │   └── test.csv
+│   ├── splits/                       # canonical data split manifests
+│   │   ├── global_test.csv           # ~15% holdout — never used for training (centralized or federated)
+│   │   └── trainable_pool.csv        # remaining ~85% — sharded in FL, split locally in centralized
 │   └── label_map.json                # disease class → index mapping
 │
 ├── src/
@@ -100,14 +99,21 @@ skinsure/
 │   ├── federated/                    # DEFERRED — design & phases: see fedler.md
 │   │   ├── CLAUDE.md                 # ★ Local context: FL strategy
 │   │   ├── __init__.py
-│   │   ├── client.py                 # Flower NumPyClient representing ONE HOSPITAL (3 simulated)
-│   │   ├── server.py                 # Flower FedAvg strategy / aggregation
-│   │   ├── privacy.py                # (deferred, fedler Phase 5) Flower DP strategies; OpenDP only if required
-│   │   └── communication.py          # Flower gRPC transport configuration (fedler Phase 3)
+│   │   ├── client.py                 # Flower ClientApp + NumPyClient representing ONE HOSPITAL (3 simulated)
+│   │   ├── server.py                 # Flower ServerApp + FedAvg strategy / aggregation
+│   │   └── privacy.py                # (deferred, fedler Phase 5) Flower DP strategies
 │   │
 │   ├── training/
 │   │   ├── __init__.py
-│   │   └── train_utils.py            # train_one_epoch / evaluate (reused by federated clients; see fedler.md)
+│   │   ├── train_utils.py            # train_one_epoch / evaluate (reused by federated clients; see fedler.md)
+│   │   ├── train.py                  # main training script (centralized baseline + per-backbone)
+│   │   ├── evaluate.py               # evaluation + fairness audit on global test set
+│   │   ├── export.py                 # model export (ONNX / TorchScript)
+│   │   └── configs/
+│   │       ├── efficientnet.yaml
+│   │       ├── convnext.yaml
+│   │       ├── swin.yaml
+│   │       └── ensemble.yaml
 │   │
 │   └── utils/
 │       ├── __init__.py
@@ -157,17 +163,6 @@ skinsure/
 ├── web/                              # website frontend (future)
 │   ├── CLAUDE.md                     # ★ Local context: frontend stack
 │   └── ...                           # framework not yet chosen
-│
-├── training/
-│   ├── CLAUDE.md                     # ★ Local context: training recipes
-│   ├── train.py                      # main training script
-│   ├── evaluate.py                   # evaluation + fairness audit
-│   ├── export.py                     # model export (ONNX / TorchScript)
-│   └── configs/
-│       ├── efficientnet.yaml
-│       ├── convnext.yaml
-│       ├── swin.yaml
-│       └── ensemble.yaml
 │
 ├── tests/
 │   ├── unit/
