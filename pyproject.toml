@@ -24,6 +24,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff", "httpx"]
+federated = ["flwr[simulation]>=1.12", "scikit-learn"]
 
 [tool.setuptools.packages.find]
 where = ["."]
