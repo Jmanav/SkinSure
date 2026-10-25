@@ -4,7 +4,7 @@ from pydantic import BaseModel, field_validator
 
 
 # str + Enum: values are plain strings in JSON, but anything outside the set is rejected
-# (someone passing "VII" or "four" fails loudly instead of breaking silently).
+# someone passing "VII" or "four" fails loudly instead of breaking silently.
 class FitzpatrickType(str, Enum):
     I = 'I'
     II = 'II'
@@ -13,12 +13,10 @@ class FitzpatrickType(str, Enum):
     V = 'V'
     VI = 'VI'
 
-
 class Sex(str, Enum):
     MALE = "male"
     FEMALE = "female"
     OTHER = "other"
-
 
 class Season(str, Enum):
     SUMMER = "summer"
@@ -26,7 +24,6 @@ class Season(str, Enum):
     WINTER = "winter"
     SPRING = "spring"
     AUTUMN = "autumn"
-
 
 class BodyArea(str, Enum):
     HEAD_NECK = "head_neck"
@@ -37,7 +34,6 @@ class BodyArea(str, Enum):
     FOOT = "foot"
     GENITAL = "genital"
     OTHER = "other"
-
 
 class PatientMetadata(BaseModel):
     ''' The schema for the patient metadata that is required for the model to make predictions.'''
@@ -53,7 +49,7 @@ class PatientMetadata(BaseModel):
     medical_history : list[str] = []  # e.g. ["diabetes", "previous melanoma"]
     is_spreading_rapidly : bool = False  # patient-reported; feeds the triage override for infections
 
-    @field_validator("fitzpatrick_type")
+    @field_validator("fitzpatrick_type") #used to check when that particular feild is being set (here fitzpatrick type)
     @classmethod  # runs on the class during construction, before any instance exists
     def validate_fitzpatrick(cls, v):
         if v in (FitzpatrickType.I, FitzpatrickType.II, FitzpatrickType.III):
@@ -71,6 +67,7 @@ class PatientMetadata(BaseModel):
 
     @field_validator("symptom_duration_days")
     @classmethod
+    #Pydantic requires @classmethod on field validators because the validation runs while building the object — no instance (self) exists yet to call methods on. You’re validating the raw inputs before the object is constructed.
     def validate_duration(cls, v):
         if v < 0:
             raise ValueError("symptom_duration_days cannot be negative")
