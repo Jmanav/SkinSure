@@ -24,7 +24,7 @@ import torch
 import torch.nn as nn
 
 import flwr as fl
-from flwr.common import ndarrays_to_parameters
+from flwr.common import ndarrays_to_parameters, parameters_to_ndarrays
 from flwr.server.strategy import FedAvg
 
 from src.federated.server import weighted_average
@@ -208,15 +208,14 @@ def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = create_model(args.backbone, num_classes=5, pretrained=False)
 
-    if history.metrics_distributed:
-        final_params = strategy.current_weights
-    else:
-        final_params = None
+    final_ndarrays = None
+    if strategy.parameters is not None:
+        final_ndarrays = parameters_to_ndarrays(strategy.parameters)
 
-    if final_params is not None:
+    if final_ndarrays is not None:
         state_dict = OrderedDict(
             (k, torch.tensor(np.array(v), dtype=param.dtype))
-            for (k, param), v in zip(model.state_dict().items(), final_params)
+            for (k, param), v in zip(model.state_dict().items(), final_ndarrays)
         )
         model.load_state_dict(state_dict, strict=True)
 
