@@ -24,8 +24,7 @@ import torch
 import torch.nn as nn
 
 import flwr as fl
-from flwr.common import ndarrays_to_parameters, parameters_to_ndarrays, FitRes, Parameters
-from flwr.server.client_proxy import ClientProxy
+from flwr.common import ndarrays_to_parameters, parameters_to_ndarrays
 from flwr.server.strategy import FedAvg
 
 from src.federated.server import weighted_average
@@ -36,13 +35,15 @@ class FedAvgWithCheckpoint(FedAvg):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.latest_parameters: Parameters | None = None
+        self.latest_parameters = None
 
     def aggregate_fit(self, server_round, results, failures):
         aggregated = super().aggregate_fit(server_round, results, failures)
         if aggregated and aggregated[0] is not None:
             self.latest_parameters = aggregated[0]
         return aggregated
+
+
 from src.training.train_utils import (
     build_loss_weights,
     build_optimizer,
