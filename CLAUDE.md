@@ -25,7 +25,7 @@ If a doc disagrees with this file or with `fedler.md`, fix the doc. When code ch
 
 ## Current Implementation State
 
-Last audited 2026-10-13 against the files on disk.
+Last audited 2026-10-26 against the files on disk.
 
 **Implemented:**
 - Schemas — `api/schemas/patient.py` (`PatientMetadata`, Fitzpatrick IV–VI gate) and `api/schemas/predictions.py` (`Predictions`, `XAISummary`, `Severity`, `ConfidenceLevel`, `ClinicalSummary`; validator enforces `urgent → immediate_referral`)
@@ -38,9 +38,10 @@ Last audited 2026-10-13 against the files on disk.
 - Explainability — `src/explainability/`: `gradcam.py` (`grad_cam`, `ensemble_heatmap`; per-backbone target layers `bn2` / `stages[-1]` / `layers[-1]`, Swin is NHWC), `xai_summary.py` (`summarize_heatmap` heatmap → `XAISummary`, `estimate_lesion_mask`), `explainer.py` (`GradCamExplainer`, the app's default), `evaluation.py` (deletion curve / AOPC for any heatmap); `scripts/evaluate_xai.py` compares Grad-CAM with external heatmaps (e.g. SHAP `.npy`) and a random baseline under one procedure
 - Config — `src/utils/config.py` (`get_settings()` for `configs/agents.yaml`; `get_model_config()` / `get_checkpoint_paths()` for `configs/models.yaml`; `get_preprocessing_config()` for `configs/preprocessing.yaml`), `configs/agents.yaml`, `configs/models.yaml` (checkpoint paths and ensemble weights)
 - Packaging — `pyproject.toml`, `.env.example`, `.gitignore`
+- **Federated learning (Phases 0–2)** — `src/training/train_utils.py` (reusable training loop: `train_one_epoch`, `evaluate`, `create_model`, transforms, dataloaders, loss weighting), `src/federated/client.py` (`SkinSureClient` NumPyClient + `ClientApp`), `src/federated/server.py` (`weighted_average` aggregation + `ServerApp`), `scripts/run_fl_simulation.py` (FL simulation via `start_simulation()` with `FedAvgWithCheckpoint`), `scripts/train_baseline.py` (centralized baseline trainer), `scripts/make_federated_shards.py` (IID/non-IID shard generation). Data splits in `data/splits/` (`global_test.csv`, `trainable_pool.csv`, `shards/iid/`, `shards/noniid/`). Dataset: 6,655 images, 5 classes. Centralized baseline: 83.15% test acc, 98.32% melanoma sens, 0.9162 composite. FL (FedAvg, 10 rounds, non-IID): 82.32% val acc, 95.26% melanoma sens, 0.9161 composite — privacy at ~2.3% accuracy cost. See `fedler.md` for full results.
 
 **Known gaps:**
-1. `tests/unit/` covers schemas, severity triage (every override branch), the clinical summarizer (fake client), the orchestrator, preprocessing and explainability (toy models and synthetic scenes); `tests/integration/` covers `/predict` and `/health` with fakes, plus one real-checkpoint run (skipped when checkpoints are absent). 158 tests pass. No `tests/fairness/` yet. Nothing in the suite touches the real LLM, a real lesion photo, or real-data accuracy.
+1. `tests/unit/` covers schemas, severity triage (every override branch), the clinical summarizer (fake client), the orchestrator, preprocessing and explainability (toy models and synthetic scenes); `tests/integration/` covers `/predict` and `/health` with fakes, plus one real-checkpoint run (skipped when checkpoints are absent). 179 tests pass. No `tests/fairness/` yet. Nothing in the suite touches the real LLM, a real lesion photo, or real-data accuracy.
 2. `summarize_one.py` has not been run against the real Anthropic API.
 3. Hair and artifact removal are untuned: on 100 unmodified Basal_Cell_Carcinoma images they fired on 33% (hair) and 47% (artifacts); on a test image with dark corners the hair mask covered 57% and the step skipped itself. Both stay off until tuned and compared on a held-out set (only BCC was measured; the run did not finish for other classes).
 4. Preprocessing is unit-tested on synthetic images only (gate boundaries, guards, step order, defaults off). Those tests pin behaviour; they say nothing about tuning on real images (see gap 3).
@@ -53,12 +54,13 @@ Last audited 2026-10-13 against the files on disk.
 **Not yet created:**
 - `GET /history`, `POST /history`, `POST /explain`; auth, rate limiting and middleware
 - Preprocessing: `augmentation.py` (training only)
-- `src/training/`, `docker/`, `.github/`, `data/splits/`
-- other planned scripts
+- `docker/`, `.github/`
+- `src/federated/privacy.py` (differential privacy — fedler Phase 3)
 
 **Future scope (deliberately not planned for the core product):**
 - `skin_tone_classifier.py` — automatic Fitzpatrick detection from the image. Today the IV–VI gate relies only on the Fitzpatrick type in `PatientMetadata`.
-- Federated learning and differential privacy — deferred entirely; the plan lives in `fedler.md`.
+- Differential privacy on top of FL — next phase; see `fedler.md` Phase 3.
+- FL for ConvNeXt and Swin backbones — see `fedler.md` Phase 4.
 
 ---
 
@@ -228,9 +230,13 @@ Severity triage hard overrides (`triage(predictions, summary, patient) -> Triage
 | `POST` | `/history` | Save consultation record |
 | `GET` | `/health` | Service health check |
 
-### Federated learning — deferred
+### Federated learning — Phases 0–2 complete
 
-Not part of the current build. The plan (hospital/clinic clients, Flower FedAvg, simulation first) lives in `fedler.md`, the source of truth for it.
+`src/training/train_utils.py` provides the reusable training loop. `src/federated/client.py` and `server.py` implement the Flower `NumPyClient`/`ClientApp`/`ServerApp`. `scripts/run_fl_simulation.py` runs the full FL simulation using `fl.simulation.start_simulation()` with a `FedAvgWithCheckpoint` strategy (subclass that captures aggregated parameters). Canonical data splits live in `data/splits/` (global test set, trainable pool, IID and non-IID hospital shards for 3 clients).
+
+**Results (EfficientNet-B1 only):** Centralized baseline: 83.15% test acc, 98.32% melanoma sens, 0.9162 composite. Federated (10 rounds, non-IID): 82.32% val acc, 95.26% melanoma sens, 0.9161 composite. Privacy cost: ~2.3% accuracy.
+
+**Remaining:** differential privacy (Phase 3), ConvNeXt/Swin FL (Phase 4), Fitzpatrick fairness eval (Phase 5). Full details and results in `fedler.md`, the source of truth.
 
 ### Testing (`tests/` — planned)
 

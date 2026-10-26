@@ -35,9 +35,12 @@ skinsure/
 │   ├── processed/                    # preprocessed images (gitignored)
 │   ├── metadata/                     # patient metadata schemas & samples
 │   │   └── schema.json
-│   ├── splits/                       # canonical data split manifests
-│   │   ├── global_test.csv           # ~15% holdout — never used for training (centralized or federated)
-│   │   └── trainable_pool.csv        # remaining ~85% — sharded in FL, split locally in centralized
+│   ├── splits/                       # canonical data split manifests (exists)
+│   │   ├── global_test.csv           # (exists) ~15% holdout (997 images) — never used for training
+│   │   ├── trainable_pool.csv        # (exists) remaining ~85% (5,658 images) — sharded in FL
+│   │   └── shards/                   # (exists) hospital shard manifests
+│   │       ├── iid/                  # hospital_a.csv, hospital_b.csv, hospital_c.csv
+│   │       └── noniid/              # hospital_a.csv, hospital_b.csv, hospital_c.csv
 │   └── label_map.json                # disease class → index mapping
 │
 ├── src/
@@ -96,16 +99,15 @@ skinsure/
 │   │       ├── search_pharmacy.py    # tool: query pharmacy locator API
 │   │       └── patient_history.py    # tool: read/write patient records
 │   │
-│   ├── federated/                    # DEFERRED — design & phases: see fedler.md
-│   │   ├── CLAUDE.md                 # ★ Local context: FL strategy
-│   │   ├── __init__.py
-│   │   ├── client.py                 # Flower ClientApp + NumPyClient representing ONE HOSPITAL (3 simulated)
-│   │   ├── server.py                 # Flower ServerApp + FedAvg strategy / aggregation
-│   │   └── privacy.py                # (deferred, fedler Phase 5) Flower DP strategies
+│   ├── federated/                    # FL Phases 0–2 COMPLETE — see fedler.md for results
+│   │   ├── __init__.py               # (exists)
+│   │   ├── client.py                 # (exists) SkinSureClient (NumPyClient) + ClientApp
+│   │   ├── server.py                 # (exists) weighted_average aggregation + ServerApp + FedAvg
+│   │   └── privacy.py                # (deferred, fedler Phase 3) Flower DP strategies
 │   │
 │   ├── training/
-│   │   ├── __init__.py
-│   │   ├── train_utils.py            # train_one_epoch / evaluate (reused by federated clients; see fedler.md)
+│   │   ├── __init__.py               # (exists)
+│   │   ├── train_utils.py            # (exists) train_one_epoch / evaluate / create_model / transforms / dataloaders
 │   │   ├── train.py                  # main training script (centralized baseline + per-backbone)
 │   │   ├── evaluate.py               # evaluation + fairness audit on global test set
 │   │   ├── export.py                 # model export (ONNX / TorchScript)
@@ -181,7 +183,9 @@ skinsure/
 │   ├── setup_env.sh                  # environment setup
 │   ├── predict_one.py                # single-image ensemble inference (exists)
 │   ├── summarize_one.py              # single summarizer call (exists)
-│   ├── make_federated_shards.py      # IID / non-IID hospital shard manifests (fedler Phase 1)
+│   ├── make_federated_shards.py      # (exists) IID / non-IID hospital shard manifests
+│   ├── train_baseline.py             # (exists) centralized baseline trainer with early stopping
+│   ├── run_fl_simulation.py          # (exists) FL simulation with FedAvgWithCheckpoint
 │   └── run_preprocessing.py          # batch preprocessing runner
 │
 ├── configs/

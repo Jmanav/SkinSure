@@ -48,9 +48,11 @@ A ⭐ marks the single most important thing to get right in that phase.
 
 **Empty files (0 bytes):** agent stubs `treatment_advisor.py`, `doctor_referral.py`, `pharmacy_locator.py`, `docs/indian_skin_tones.md`, `src/CLAUDE.md`, `src/agents/CLAUDE.md`, and the `src/agents/tools/` directory.
 
-**Not created yet:** `/explain` and `/history` routes; `augmentation.py`; `tests/fairness/`, `docker/`, `.github/`, `src/federated/`, `src/training/`, `data/splits/`.
+**Not created yet:** `/explain` and `/history` routes; `augmentation.py`; `tests/fairness/`, `docker/`, `.github/`.
 
-**Future scope:** `skin_tone_classifier.py` (image-based Fitzpatrick detection). Federated learning and differential privacy are deferred (`fedler.md`).
+**Federated learning (Phases 0–2 complete):** `src/training/train_utils.py`, `src/federated/client.py`, `src/federated/server.py`, `scripts/run_fl_simulation.py`, `scripts/train_baseline.py`, `scripts/make_federated_shards.py`, `data/splits/` all exist on the `federated-learning` branch. Centralized baseline: 83.15% test acc. FL (FedAvg, 10 rounds, non-IID): 82.32% val acc, 95.26% melanoma sens, 0.9161 composite. See `fedler.md`.
+
+**Future scope:** `skin_tone_classifier.py` (image-based Fitzpatrick detection). Differential privacy on FL (Phase 3), FL for ConvNeXt/Swin (Phase 4) — see `fedler.md`.
 
 ---
 
@@ -460,7 +462,7 @@ Status: ✅ done · 🟡 partial · ⬜ not started
 Not research, just remaining product polish you can pick up anytime:
 
 - **Image-based skin tone classifier** (`skin_tone_classifier.py`) — future scope; the metadata gate covers Fitzpatrick IV–VI for now.
-- **Federated learning and differential privacy** — deferred; see `fedler.md`.
+- **Federated learning** — Phases 0–2 complete (EfficientNet-B1 baseline + FL simulation). Differential privacy (Phase 3), other backbones (Phase 4), and fairness eval (Phase 5) remaining. See `fedler.md`.
 - **A real datastore & patient history** — Postgres + migrations instead of in-memory/SQLite.
 - **A real pharmacy/maps integration** — replace the mock locator with a live API.
 

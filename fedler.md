@@ -72,8 +72,8 @@ story under the DPDP Act is real and defensible.
 ### Client structure for simulation
 
 Since no real hospital partnerships exist yet, the FL pipeline is built as a
-**simulation** on the existing curated dataset (~14,500 images from public
-datasets, 5 diseases; exact per-class counts are in `src/models/CLAUDE.md`).
+**simulation** on the existing curated dataset (6,655 images from the IPD
+dataset, 5 diseases; see "Ground truth" section below for per-class counts).
 The simulation is designed so the same code plugs into real hospital clients
 later.
 
@@ -371,28 +371,67 @@ aggressive," so a noise-free baseline needs to exist first.
 
 ---
 
-## Ground truth about what exists today (start of Phase 0)
+## Ground truth — current state (updated 2026-10-26)
 
-- Three trained backbones with checkpoints in
-  `models/checkpoints/{efficientNet,convNext,swin}/`.
-- Model classes in `src/models/{efficientnet,convnext,swin}.py`, each with a
-  `load_*` function and a consistent checkpoint dict shape
-  (`model_state`, `classes`, `config`, `best_val_acc`, `best_melanoma_sens`, ...).
-- No training `.py` files yet — training only exists in Colab notebooks
-  (`src/models/*.ipynb`). This is the biggest gap Phase 0 closes.
-- `src/federated/` doesn't exist yet — `docs/architecture.md` lists it as planned
-  (`client.py`, `server.py`, `privacy.py`) but there's nothing there until
-  Phase 2. No `communication.py` — Flower handles gRPC transport natively.
-- No `flwr` in `pyproject.toml` yet.
-- **Dataset:** ~14,500 images curated from public datasets, 5 diseases, skewed
-  toward Melanoma. Per-class counts are in `src/models/CLAUDE.md`. No canonical
-  train/val/test split manifests exist yet — Phase 0 creates them, holding out
-  ~15% as a global test set before any sharding.
-- **No hospital partnerships yet.** The FL pipeline is a simulation designed
-  to convince hospitals to participate. The code is structured so real hospital
-  clients can replace simulated shards without architectural changes.
-- Client granularity is **hospital/clinic** (B2B). Patient uploads are never used
-  for training.
+### What exists and works
+
+- **Phases 0–2 fully implemented and committed** on the `federated-learning` branch.
+- `src/training/train_utils.py` — reusable training loop: `train_one_epoch`, `evaluate`, `create_model`, `build_loss_weights`, `build_optimizer`, `build_scheduler`, transforms, dataloaders. Supports all three backbones (`efficientnet`, `convnext`, `swin`).
+- `src/federated/client.py` — `SkinSureClient` (`NumPyClient` subclass) representing one hospital; `ClientApp` for `flwr run` CLI.
+- `src/federated/server.py` — `weighted_average` metric aggregation; `ServerApp` with configurable `FedAvg` strategy for `flwr run` CLI.
+- `scripts/run_fl_simulation.py` — standalone FL simulation using `fl.simulation.start_simulation()` with `FedAvgWithCheckpoint` (custom subclass that captures aggregated parameters for post-training evaluation). Evaluates the final global model on the held-out global test set.
+- `scripts/make_federated_shards.py` — IID and non-IID shard generation for 3 hospitals.
+- `scripts/train_baseline.py` — centralized baseline trainer with early stopping and composite-score tracking.
+- `data/splits/` — canonical splits: `global_test.csv`, `trainable_pool.csv`, and hospital shards under `shards/iid/` and `shards/noniid/` (3 CSVs each).
+- `flwr` added to `pyproject.toml` under `[project.optional-dependencies].federated`.
+- **Dataset:** 6,655 images across 5 target classes (from the 9-class IPD dataset). Per-class: Melanoma 1,587, Eczema 1,365, Keratosis 1,294, BCC 1,208, Tinea 1,201. Trainable pool: 5,658; Global test: 997.
+- 179 tests pass.
+
+### Centralized baseline results (EfficientNet-B1, 30 epochs, early stopped at 28)
+
+| Metric | Value |
+|---|---|
+| Test accuracy | 83.15% |
+| Melanoma sensitivity | 98.32% |
+| BCC sensitivity | 91.16% |
+| Composite score | 0.9162 |
+| Eczema sensitivity | 73.04% |
+| Keratosis sensitivity | 70.10% |
+| Tinea sensitivity | 80.56% |
+
+### Federated learning results (FedAvg, 10 rounds, 3 hospitals, non-IID, EfficientNet-B1)
+
+Trained on Kaggle with 2x T4 GPUs. Round-by-round distributed validation:
+
+| Metric | Round 1 | Round 5 | Round 10 |
+|---|---|---|---|
+| Val accuracy | 64.56% | 79.01% | **82.32%** |
+| Melanoma sensitivity | 84.70% | 94.18% | **95.26%** |
+| BCC sensitivity | 92.54% | 94.80% | **96.04%** |
+| Composite | 0.8101 | 0.8981 | **0.9161** |
+
+Distributed loss convergence: 1.056 → 0.857 over 10 rounds.
+
+**Baseline vs Federated comparison (distributed validation):**
+
+| Metric | Centralized | Federated | Gap |
+|---|---|---|---|
+| Val accuracy | 84.61% | 82.32% | -2.29% |
+| Melanoma sensitivity | 97.95% | 95.26% | -2.69% |
+| BCC sensitivity | — | 96.04% | — |
+| Composite | 0.9215 | 0.9161 | -0.0054 |
+
+Privacy cost is minimal: ~2.3% accuracy loss, safety-critical classes (Melanoma, BCC) both above 95%.
+
+### What's next
+
+- **Phase 2 completion:** global test set evaluation of the federated model (pending Kaggle re-run with `FedAvgWithCheckpoint` fix).
+- **Phase 3:** Differential privacy (Flower DP strategies, epsilon experiments).
+- **Phase 4:** Repeat FL for ConvNeXt-Tiny and Swin-Tiny backbones.
+- **Phase 5:** Fairness evaluation across Fitzpatrick subtypes.
+
+### No hospital partnerships yet
+The FL pipeline is a simulation designed to convince hospitals to participate. The code is structured so real hospital clients can replace simulated shards without architectural changes. Client granularity is **hospital/clinic** (B2B). Patient uploads are never used for training.
 
 ## Out of scope for this plan
 
