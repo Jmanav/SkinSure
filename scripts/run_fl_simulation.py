@@ -24,10 +24,25 @@ import torch
 import torch.nn as nn
 
 import flwr as fl
-from flwr.common import ndarrays_to_parameters, parameters_to_ndarrays
+from flwr.common import ndarrays_to_parameters, parameters_to_ndarrays, FitRes, Parameters
+from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy import FedAvg
 
 from src.federated.server import weighted_average
+
+
+class FedAvgWithCheckpoint(FedAvg):
+    """FedAvg that captures the latest aggregated parameters."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.latest_parameters: Parameters | None = None
+
+    def aggregate_fit(self, server_round, results, failures):
+        aggregated = super().aggregate_fit(server_round, results, failures)
+        if aggregated and aggregated[0] is not None:
+            self.latest_parameters = aggregated[0]
+        return aggregated
 from src.training.train_utils import (
     build_loss_weights,
     build_optimizer,
@@ -170,7 +185,7 @@ def main() -> None:
         [val.cpu().numpy() for val in initial_model.state_dict().values()]
     )
 
-    strategy = FedAvg(
+    strategy = FedAvgWithCheckpoint(
         fraction_fit=1.0,
         fraction_evaluate=1.0,
         min_fit_clients=3,
@@ -209,8 +224,8 @@ def main() -> None:
     model = create_model(args.backbone, num_classes=5, pretrained=False)
 
     final_ndarrays = None
-    if strategy.parameters is not None:
-        final_ndarrays = parameters_to_ndarrays(strategy.parameters)
+    if strategy.latest_parameters is not None:
+        final_ndarrays = parameters_to_ndarrays(strategy.latest_parameters)
 
     if final_ndarrays is not None:
         state_dict = OrderedDict(
