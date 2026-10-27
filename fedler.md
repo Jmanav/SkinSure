@@ -346,6 +346,65 @@ in FL aggregation.
 - Run all three FL jobs and evaluate each backbone's global test set performance
   independently, then combine via the existing ensemble at inference.
 
+### What actually changes for ConvNeXt-Tiny and Swin-Tiny
+
+Audited against the code on 2026-10-27. Most of the plumbing already handles all
+three backbones — these are the things that genuinely differ.
+
+**Already handled, nothing to do:**
+- **Model swap.** `create_model()` in `train_utils.py` takes all three backbone
+  names; `swin_tiny_patch4_window7_224` is already the default `model_name`.
+- **Input size.** `DEFAULT_CFG["img_size"] = 224` is used for *every* backbone —
+  our EfficientNet-B1 was trained at 224, not timm's native 240. Swin's
+  224-only constraint is therefore already satisfied. Do not "fix" this to 240
+  for EfficientNet: it would break Swin and invalidate the comparison.
+- **Optimizer.** `build_optimizer()` is already AdamW, head at `lr=2e-4` and
+  backbone at `lr * 0.1 = 2e-5`. That is in the right range for ConvNeXt and
+  Swin; no SGD anywhere to diverge.
+
+**Genuinely different:**
+- **Cost.** ConvNeXt-Tiny is 28.0M params and Swin-Tiny 27.7M, against 6.8M for
+  EfficientNet-B1 — roughly 4× the weights. Expect ~3–4× the per-round time
+  (EfficientNet's 10 rounds took ~1,225 s on 2× T4) and ~4× the per-round
+  communication payload. Budget against Kaggle's session limit before launching;
+  consider fewer rounds or a smaller batch rather than a half-finished run.
+- **LayerNorm vs BatchNorm under non-IID — the interesting experiment.**
+  EfficientNet uses BatchNorm, so FedAvg averages each hospital's `running_mean`
+  / `running_var` across shards with different class mixes, blending statistics
+  that describe genuinely different input distributions. ConvNeXt and Swin use
+  LayerNorm, which normalises per-sample and carries no cross-client running
+  statistics at all. The hypothesis worth testing: **the Keratosis collapse
+  (70.10% → 56.70%) is partly a BatchNorm-under-non-IID artifact and should
+  shrink on the LayerNorm backbones.** Compare per-class sensitivity on the same
+  997-image test set to find out. This is a publishable finding either way.
+
+**Latent bug to fix first — integer buffers (affects EfficientNet, not Swin):**
+
+The common advice is that "Swin has integer index buffers that break when
+averaged." Measured on our wrappers, the opposite is true:
+
+| Backbone | `state_dict` entries | Non-float entries |
+|---|---|---|
+| EfficientNet-B1 | 512 | **69** (`num_batches_tracked`, int64) |
+| ConvNeXt-Tiny | 186 | 0 |
+| Swin-Tiny | 177 | 0 |
+
+`SkinSureClient.get_parameters()` ships every `state_dict` value, so those 69
+int64 counters are sent to the server, averaged as floats by FedAvg, then cast
+back to int64 by `set_parameters()` (`client.py:76`), truncating toward zero.
+
+This did **not** corrupt the Phase 2 results: `num_batches_tracked` only paces
+BatchNorm's running-stat momentum during `.train()`, and the statistics that
+affect inference (`running_mean` / `running_var`) are floats that average
+correctly. But it is wrong, it wastes payload, and it will make anomalies harder
+to attribute once DP noise is added in Phase 3. Fix it by averaging only
+floating-point tensors and passing integer buffers through unchanged — before
+starting Phase 4, so all three backbones run on identical, correct plumbing.
+
+**Hold constant across all three runs**, or the backbones cannot be compared:
+the same shard manifests (`data/splits/shards/noniid/`), seed, number of rounds,
+local epochs, and the same 997-image `global_test.csv`.
+
 ---
 
 ## Phase 5 — Differential privacy (deferred)
@@ -476,12 +535,20 @@ that does not leave any single hospital with too few Keratosis examples to learn
 
 ### What's next
 
+- **Fix integer-buffer averaging first.** `SkinSureClient.get_parameters()` ships
+  EfficientNet's 69 int64 `num_batches_tracked` buffers; FedAvg averages them and
+  `set_parameters()` (`client.py:76`) truncates them back to int64. Harmless to the Phase 2
+  numbers (see Phase 4 notes for why) but wrong, and it should be corrected before Phase 3
+  or 4 so every backbone runs on identical, correct plumbing.
 - **Phase 3:** Differential privacy (Flower DP strategies, epsilon experiments). Note the
   DP accuracy cost will stack on top of the -3.21% FL cost measured above, and the critical
   experiment is whether melanoma sensitivity stays clinically acceptable.
-- **Phase 4:** Repeat FL for ConvNeXt-Tiny and Swin-Tiny backbones.
+- **Phase 4:** Repeat FL for ConvNeXt-Tiny and Swin-Tiny backbones. See the Phase 4 notes
+  for what actually differs — chiefly ~4× cost and the LayerNorm-vs-BatchNorm question.
 - **Phase 5:** Fairness evaluation across Fitzpatrick subtypes.
-- **Keratosis regression:** investigate the -13.4 point drop before adding DP noise on top of it.
+- **Keratosis regression:** investigate the -13.4 point drop before adding DP noise on top
+  of it. Leading hypothesis is BatchNorm statistics averaged across non-IID shards, which
+  the ConvNeXt/Swin runs will test directly.
 
 ### No hospital partnerships yet
 The FL pipeline is a simulation designed to convince hospitals to participate. The code is structured so real hospital clients can replace simulated shards without architectural changes. Client granularity is **hospital/clinic** (B2B). Patient uploads are never used for training.
