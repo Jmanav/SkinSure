@@ -272,6 +272,12 @@ Phase 0, never seen by any client) approach the centralized baseline from
 Phase 0. This gap is the real quantity of interest — federated will likely be
 slightly worse; the question is how much.
 
+> **Met.** 10 rounds on non-IID shards: 79.94% test accuracy vs 83.15% centralized
+> (-3.21%), melanoma sensitivity 97.06% vs 98.32% (-1.26%). Full results in
+> "Ground truth" below. Measure on the global test set, not the per-client
+> validation splits — the latter run ~2 points optimistic because each client
+> validates on its own shard's distribution.
+
 **Key metric to track per round:**
 - Global model val_acc and melanoma_sensitivity (the numbers that matter)
 - Per-client local val_acc before and after each round (shows whether FL helps
@@ -371,7 +377,7 @@ aggressive," so a noise-free baseline needs to exist first.
 
 ---
 
-## Ground truth — current state (updated 2026-10-26)
+## Ground truth — current state (updated 2026-10-27)
 
 ### What exists and works
 
@@ -401,34 +407,81 @@ aggressive," so a noise-free baseline needs to exist first.
 
 ### Federated learning results (FedAvg, 10 rounds, 3 hospitals, non-IID, EfficientNet-B1)
 
-Trained on Kaggle with 2x T4 GPUs. Round-by-round distributed validation:
+Trained on Kaggle with 2x T4 GPUs. Checkpoint: `models/federated/efficientnet_federated.pth`
+(config confirmed in the checkpoint: 10 rounds, 2 local epochs, FedAvg, 3 clients,
+`data/splits/shards/noniid`).
+
+**Global test set — the authoritative numbers (997 held-out images, never seen by any client):**
+
+| Metric | Value |
+|---|---|
+| Test accuracy | 79.94% |
+| Melanoma sensitivity | 97.06% |
+| BCC sensitivity | 90.61% |
+| Composite score | 0.8999 |
+| Test loss | 0.5312 |
+
+Per-class sensitivity / specificity on the global test set:
+
+| Class | Sensitivity | Specificity |
+|---|---|---|
+| Melanoma | 97.06% | 99.60% |
+| Basal_Cell_Carcinoma | 90.61% | 96.81% |
+| Tinea | 83.33% | 88.74% |
+| Eczema | 69.61% | 93.44% |
+| Keratosis | 56.70% | 96.64% |
+
+**Round-by-round distributed validation** (each client's own local val split — useful for
+watching convergence, but *not* comparable to the global test numbers above, since each
+client validates on its own shard):
 
 | Metric | Round 1 | Round 5 | Round 10 |
 |---|---|---|---|
-| Val accuracy | 64.56% | 79.01% | **82.32%** |
-| Melanoma sensitivity | 84.70% | 94.18% | **95.26%** |
-| BCC sensitivity | 92.54% | 94.80% | **96.04%** |
-| Composite | 0.8101 | 0.8981 | **0.9161** |
+| Val accuracy | 64.56% | 79.01% | 82.32% |
+| Melanoma sensitivity | 84.70% | 94.18% | 95.26% |
+| BCC sensitivity | 92.54% | 94.80% | 96.04% |
+| Composite | 0.8101 | 0.8981 | 0.9161 |
 
 Distributed loss convergence: 1.056 → 0.857 over 10 rounds.
 
-**Baseline vs Federated comparison (distributed validation):**
+### Centralized vs Federated — global test set (apples to apples)
 
 | Metric | Centralized | Federated | Gap |
 |---|---|---|---|
-| Val accuracy | 84.61% | 82.32% | -2.29% |
-| Melanoma sensitivity | 97.95% | 95.26% | -2.69% |
-| BCC sensitivity | — | 96.04% | — |
-| Composite | 0.9215 | 0.9161 | -0.0054 |
+| Test accuracy | 83.15% | 79.94% | **-3.21%** |
+| Melanoma sensitivity | 98.32% | 97.06% | -1.26% |
+| BCC sensitivity | 91.16% | 90.61% | -0.55% |
+| Composite | 0.9162 | 0.8999 | -0.0163 |
 
-Privacy cost is minimal: ~2.3% accuracy loss, safety-critical classes (Melanoma, BCC) both above 95%.
+Per-class sensitivity:
+
+| Class | Centralized | Federated | Gap |
+|---|---|---|---|
+| Melanoma | 98.32% | 97.06% | -1.26% |
+| Basal_Cell_Carcinoma | 91.16% | 90.61% | -0.55% |
+| Tinea | 80.56% | 83.33% | **+2.77%** |
+| Eczema | 73.04% | 69.61% | -3.43% |
+| Keratosis | 70.10% | 56.70% | **-13.40%** |
+
+**Interpretation.** Federated training costs ~3.2 points of overall accuracy, but the loss is
+not spread evenly — it concentrates almost entirely in Keratosis (-13.4), the class that was
+already weakest centrally. The safety-critical classes hold: Melanoma sensitivity 97.06%
+(within 1.3 points of centralized) at 99.60% specificity, so the privacy-preserving model
+still catches nearly every melanoma without flooding clinicians with false alarms. Tinea
+actually improved under FL, which is consistent with the non-IID design (Hospital B is
+Tinea/Eczema-heavy, so Tinea gets concentrated local training signal).
+
+Keratosis is the thing to fix in later phases — likely more rounds, or a sharding strategy
+that does not leave any single hospital with too few Keratosis examples to learn from.
 
 ### What's next
 
-- **Phase 2 completion:** global test set evaluation of the federated model (pending Kaggle re-run with `FedAvgWithCheckpoint` fix).
-- **Phase 3:** Differential privacy (Flower DP strategies, epsilon experiments).
+- **Phase 3:** Differential privacy (Flower DP strategies, epsilon experiments). Note the
+  DP accuracy cost will stack on top of the -3.21% FL cost measured above, and the critical
+  experiment is whether melanoma sensitivity stays clinically acceptable.
 - **Phase 4:** Repeat FL for ConvNeXt-Tiny and Swin-Tiny backbones.
 - **Phase 5:** Fairness evaluation across Fitzpatrick subtypes.
+- **Keratosis regression:** investigate the -13.4 point drop before adding DP noise on top of it.
 
 ### No hospital partnerships yet
 The FL pipeline is a simulation designed to convince hospitals to participate. The code is structured so real hospital clients can replace simulated shards without architectural changes. Client granularity is **hospital/clinic** (B2B). Patient uploads are never used for training.

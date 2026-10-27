@@ -50,7 +50,7 @@ A ⭐ marks the single most important thing to get right in that phase.
 
 **Not created yet:** `/explain` and `/history` routes; `augmentation.py`; `tests/fairness/`, `docker/`, `.github/`.
 
-**Federated learning (Phases 0–2 complete):** `src/training/train_utils.py`, `src/federated/client.py`, `src/federated/server.py`, `scripts/run_fl_simulation.py`, `scripts/train_baseline.py`, `scripts/make_federated_shards.py`, `data/splits/` all exist on the `federated-learning` branch. Centralized baseline: 83.15% test acc. FL (FedAvg, 10 rounds, non-IID): 82.32% val acc, 95.26% melanoma sens, 0.9161 composite. See `fedler.md`.
+**Federated learning (Phases 0–2 complete):** `src/training/train_utils.py`, `src/federated/client.py`, `src/federated/server.py`, `scripts/run_fl_simulation.py`, `scripts/train_baseline.py`, `scripts/make_federated_shards.py`, `data/splits/` all exist on the `federated-learning` branch. On the held-out global test set: centralized baseline 83.15% acc / 98.32% melanoma sens; FL (FedAvg, 10 rounds, non-IID) 79.94% acc / 97.06% melanoma sens / 0.8999 composite. See `fedler.md`.
 
 **Future scope:** `skin_tone_classifier.py` (image-based Fitzpatrick detection). Differential privacy on FL (Phase 3), FL for ConvNeXt/Swin (Phase 4) — see `fedler.md`.
 

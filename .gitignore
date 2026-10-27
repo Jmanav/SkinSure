@@ -4,5 +4,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 models/checkpoints/**/*.pth
+models/baselines/**/*.pth
+models/federated/**/*.pth
 data/raw/
 data/processed/

@@ -25,7 +25,7 @@ If a doc disagrees with this file or with `fedler.md`, fix the doc. When code ch
 
 ## Current Implementation State
 
-Last audited 2026-10-26 against the files on disk.
+Last audited 2026-10-27 against the files on disk.
 
 **Implemented:**
 - Schemas — `api/schemas/patient.py` (`PatientMetadata`, Fitzpatrick IV–VI gate) and `api/schemas/predictions.py` (`Predictions`, `XAISummary`, `Severity`, `ConfidenceLevel`, `ClinicalSummary`; validator enforces `urgent → immediate_referral`)
@@ -38,7 +38,7 @@ Last audited 2026-10-26 against the files on disk.
 - Explainability — `src/explainability/`: `gradcam.py` (`grad_cam`, `ensemble_heatmap`; per-backbone target layers `bn2` / `stages[-1]` / `layers[-1]`, Swin is NHWC), `xai_summary.py` (`summarize_heatmap` heatmap → `XAISummary`, `estimate_lesion_mask`), `explainer.py` (`GradCamExplainer`, the app's default), `evaluation.py` (deletion curve / AOPC for any heatmap); `scripts/evaluate_xai.py` compares Grad-CAM with external heatmaps (e.g. SHAP `.npy`) and a random baseline under one procedure
 - Config — `src/utils/config.py` (`get_settings()` for `configs/agents.yaml`; `get_model_config()` / `get_checkpoint_paths()` for `configs/models.yaml`; `get_preprocessing_config()` for `configs/preprocessing.yaml`), `configs/agents.yaml`, `configs/models.yaml` (checkpoint paths and ensemble weights)
 - Packaging — `pyproject.toml`, `.env.example`, `.gitignore`
-- **Federated learning (Phases 0–2)** — `src/training/train_utils.py` (reusable training loop: `train_one_epoch`, `evaluate`, `create_model`, transforms, dataloaders, loss weighting), `src/federated/client.py` (`SkinSureClient` NumPyClient + `ClientApp`), `src/federated/server.py` (`weighted_average` aggregation + `ServerApp`), `scripts/run_fl_simulation.py` (FL simulation via `start_simulation()` with `FedAvgWithCheckpoint`), `scripts/train_baseline.py` (centralized baseline trainer), `scripts/make_federated_shards.py` (IID/non-IID shard generation). Data splits in `data/splits/` (`global_test.csv`, `trainable_pool.csv`, `shards/iid/`, `shards/noniid/`). Dataset: 6,655 images, 5 classes. Centralized baseline: 83.15% test acc, 98.32% melanoma sens, 0.9162 composite. FL (FedAvg, 10 rounds, non-IID): 82.32% val acc, 95.26% melanoma sens, 0.9161 composite — privacy at ~2.3% accuracy cost. See `fedler.md` for full results.
+- **Federated learning (Phases 0–2)** — `src/training/train_utils.py` (reusable training loop: `train_one_epoch`, `evaluate`, `create_model`, transforms, dataloaders, loss weighting), `src/federated/client.py` (`SkinSureClient` NumPyClient + `ClientApp`), `src/federated/server.py` (`weighted_average` aggregation + `ServerApp`), `scripts/run_fl_simulation.py` (FL simulation via `start_simulation()` with `FedAvgWithCheckpoint`), `scripts/train_baseline.py` (centralized baseline trainer), `scripts/make_federated_shards.py` (IID/non-IID shard generation). Data splits in `data/splits/` (`global_test.csv`, `trainable_pool.csv`, `shards/iid/`, `shards/noniid/`). Dataset: 6,655 images, 5 classes. **Both measured on the same 997-image global test set:** centralized baseline 83.15% acc / 98.32% melanoma sens / 0.9162 composite; FL (FedAvg, 10 rounds, non-IID) 79.94% acc / 97.06% melanoma sens / 0.8999 composite — privacy costs ~3.2 points of accuracy, concentrated in Keratosis (-13.4), while melanoma sensitivity holds within 1.3 points. See `fedler.md` for full per-class results.
 
 **Known gaps:**
 1. `tests/unit/` covers schemas, severity triage (every override branch), the clinical summarizer (fake client), the orchestrator, preprocessing and explainability (toy models and synthetic scenes); `tests/integration/` covers `/predict` and `/health` with fakes, plus one real-checkpoint run (skipped when checkpoints are absent). 179 tests pass. No `tests/fairness/` yet. Nothing in the suite touches the real LLM, a real lesion photo, or real-data accuracy.
@@ -142,7 +142,8 @@ The LLM is instructed to return **JSON only** — no markdown, no preamble. Pars
 | ML Frameworks | PyTorch, timm |
 | Model Backbones | EfficientNet-B1, ConvNeXt-Tiny, Swin-Tiny |
 | xAI | Grad-CAM first; SHAP, LIME later (planned) |
-| Federated learning / DP | Deferred — see `fedler.md` |
+| Federated learning | Flower (`flwr`) FedAvg — Phases 0–2 done; see `fedler.md` |
+| Differential privacy | Deferred to Phase 3 — see `fedler.md` |
 | Containerisation | Docker + docker-compose (planned) |
 | CI/CD | GitHub Actions (planned) |
 
@@ -234,9 +235,18 @@ Severity triage hard overrides (`triage(predictions, summary, patient) -> Triage
 
 `src/training/train_utils.py` provides the reusable training loop. `src/federated/client.py` and `server.py` implement the Flower `NumPyClient`/`ClientApp`/`ServerApp`. `scripts/run_fl_simulation.py` runs the full FL simulation using `fl.simulation.start_simulation()` with a `FedAvgWithCheckpoint` strategy (subclass that captures aggregated parameters). Canonical data splits live in `data/splits/` (global test set, trainable pool, IID and non-IID hospital shards for 3 clients).
 
-**Results (EfficientNet-B1 only):** Centralized baseline: 83.15% test acc, 98.32% melanoma sens, 0.9162 composite. Federated (10 rounds, non-IID): 82.32% val acc, 95.26% melanoma sens, 0.9161 composite. Privacy cost: ~2.3% accuracy.
+**Results (EfficientNet-B1 only), both on the held-out 997-image global test set:**
 
-**Remaining:** differential privacy (Phase 3), ConvNeXt/Swin FL (Phase 4), Fitzpatrick fairness eval (Phase 5). Full details and results in `fedler.md`, the source of truth.
+| Metric | Centralized | Federated | Gap |
+|---|---|---|---|
+| Test accuracy | 83.15% | 79.94% | -3.21% |
+| Melanoma sensitivity | 98.32% | 97.06% | -1.26% |
+| BCC sensitivity | 91.16% | 90.61% | -0.55% |
+| Composite | 0.9162 | 0.8999 | -0.0163 |
+
+The accuracy loss concentrates in Keratosis (70.10% → 56.70%); safety-critical classes hold. Per-client validation metrics run ~2 points optimistic versus this test set — always quote the global test numbers.
+
+**Remaining:** Keratosis regression, differential privacy (Phase 3), ConvNeXt/Swin FL (Phase 4), Fitzpatrick fairness eval (Phase 5). Full details and results in `fedler.md`, the source of truth.
 
 ### Testing (`tests/` — planned)
 
