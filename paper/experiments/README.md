@@ -58,7 +58,17 @@ Upload the checkpoints from `models/checkpoints/*/`. Use the **`*_5cls_skin.pth`
 files, not `best_*.pth`: the `best_*` files are bare `state_dict`s with no `config`,
 `classes` or metrics, so the reproduction gate cannot run against them.
 
-**Accelerator:** GPU T4 x1 for Notebooks 1 and 4; Notebooks 2 and 3 are CPU-only.
+**Accelerator:** GPU T4 x1 for Notebooks 1, 4, 5 and 6; Notebooks 2 and 3 are
+CPU-only.
+
+> **Check the accelerator before every training run.** The EfficientNet retrain of
+> 2026-10-29 completed on **CPU** because the setting was left at "None". B1 was
+> small enough to finish anyway (3.78 h), but it produced no mixed precision and a
+> `timing.json` that claimed a T4 it never used. Swin-Tiny is ~7.6× B1's FLOPs,
+> which extrapolates to **~30 h on CPU** against Kaggle's 12 h session limit — the
+> session would be killed mid-run. NB5 and NB6 now raise a `RuntimeError` in the
+> setup cell when CUDA is absent; **NB4 does not have that guard**, so verify it
+> manually. Details in `paper/new_results.md` §2.
 
 ---
 
@@ -74,15 +84,20 @@ and Notebook 1's last cell consumes Notebook 2's manifest.
 > evaluated. Notebooks 04/05/06 recover usable weights, and each ends with a
 > save-then-verify cell that would have caught the original failure.
 
-| # | Notebook | HW | Runtime | Depends on |
-|---|---|---|---|---|
-| 2 | `02_dedup_phash.ipynb` | CPU | **8–15 min** (hashing ~6.6k images dominates) | data — **runnable now** |
-| 5 | `05_efficientnet_retrain.ipynb` | T4 x1 | **3–4 h** | data |
-| 6 | `06_swin_retrain.ipynb` | T4 x1 | **3.5–4.5 h** | data |
-| 4 | `04_convnext_retrain.ipynb` | T4 x1 | **3–4.5 h** (~4–7 min/epoch x up to 40 epochs) | data |
-| 1 | `01_eval_and_ablation.ipynb` | T4 x1 | **12–20 min** | **all three retrained checkpoints** + data |
-| 3 | `03_skin_tone_ita.ipynb` | CPU | **6–12 min** (ITA over train+test) | NB1 caches |
-| 1b | re-run NB1 final cell only | CPU | **2–4 min** | NB2 manifest |
+| # | Notebook | HW | Runtime | Depends on | Status |
+|---|---|---|---|---|---|
+| 2 | `02_dedup_phash.ipynb` | CPU | **8–15 min** | data | **DONE** 2026-10-29 — 162/727 test images (22.28%) have a pHash near-duplicate (d≤5) in train/val; `test_clean_manifest.csv` keeps **565** |
+| 5 | `05_efficientnet_retrain.ipynb` | T4 x1 | **3–4 h** (measured 3.78 h, but **on CPU**) | data | **DONE** 2026-10-29 — 84.73% / 0.9704 / MCC 0.8113, save-then-verify passed. See `paper/new_results.md` |
+| 6 | `06_swin_retrain.ipynb` | T4 x1 | **3.5–4.5 h** (~30 h if CPU — guard now blocks this) | data | next |
+| 4 | `04_convnext_retrain.ipynb` | T4 x1 | **3–4.5 h** (~4–7 min/epoch x up to 40 epochs) | data | pending — **no CPU guard**, check accelerator |
+| 1 | `01_eval_and_ablation.ipynb` | T4 x1 | **12–20 min** | **all three retrained checkpoints** + data + NB2 manifest | blocked on 6 and 4 |
+| 3 | `03_skin_tone_ita.ipynb` | CPU | **6–12 min** (ITA over train+test) | NB1 caches | blocked on 1 |
+
+Notebook 1 now applies NB2's manifest from the start (`CLEAN_MANIFEST` in §1), so the
+clean 565-image subset is the primary basis for every reported metric and the separate
+"1b" re-run step is no longer needed. §6's reproduction gate deliberately stays on the
+full 727 — that is the only basis comparable to the values stored in the checkpoints —
+and §15 reports the full-test numbers as a contamination appendix.
 
 Notebook 2 touches only images, never weights, so its result is valid regardless of
 retraining — run it first, off the critical path. The three retrains are independent
@@ -95,7 +110,7 @@ metrics, so once the retrained checkpoints are in place it validates the new val
 rather than the old, unreproducible ones.
 
 > **Download `/kaggle/working/` before the session expires** — especially
-> `cache_*.npz`, which Notebooks 3 and 1b need. Re-attaching the outputs of a
+> `cache_*.npz`, which Notebook 3 needs. Re-attaching the outputs of a
 > finished notebook as a Kaggle dataset is the simplest way to chain sessions.
 
 ---
@@ -116,7 +131,7 @@ rather than the old, unreproducible ones.
 | `fig4_roc.pdf` | **Fig. 4** |
 | `fig5_confusion_matrix.pdf` | **Fig. 5** |
 | `results_clean.json`, `ablation_table_clean.csv` | Sec. 6 / limitations: metrics on the de-duplicated test set |
-| `cache_*.npz` | Inputs to Notebooks 3 and 1b |
+| `cache_*.npz` | Inputs to Notebook 3 |
 
 The **paired bootstrap** (`paired_bootstrap_ensemble_minus_swin` in `results.json`)
 is the key honesty result: the paper claims macro-AUC 0.9683 → 0.9762 and MCC
@@ -162,7 +177,7 @@ present.
 | `{efficientnet_b1,swin_tiny}_5cls_skin_v2.pth` | The checkpoints every other notebook consumes. Same wrapped format as the originals, plus `mcc`, `saved_epoch` and `metrics_at_saved_epoch` |
 | `results_{efficientnet,swin}_v2.json` | Methods + Results: config, per-class metrics, confusion matrix, full history, verification record |
 | `history.csv` | Training-curve evidence, flushed every epoch so it survives lost cell outputs |
-| `timing.json` | Methods: **measured** wall-clock and GPU name, replacing the unsupported "≈6 h on 2×T4" |
+| `timing.json` | Methods: **measured** wall-clock and device, replacing the unsupported "≈6 h on 2×T4". Now also records `amp_requested` / `amp_effective` / `precision`, because `torch.cuda.amp` is a silent no-op off CUDA. |
 | `curves_*_v2.pdf` | Loss / accuracy / gap / sensitivity / composite / minutes-per-epoch |
 
 The training recipe is **byte-identical** to the originals — verified by 92 automated
@@ -182,7 +197,7 @@ model, (2) re-scoring reproduces `test_acc` exactly, (3) the stored value agrees
 | Output | Feeds |
 |---|---|
 | `history.csv` | Training-curve evidence; shows ConvNeXt actually converging |
-| `timing.json` | Methods: **real** wall-clock and GPU name, replacing the unsupported "≈6 h on 2×T4" |
+| `timing.json` | Methods: **real** wall-clock and device, replacing the unsupported "≈6 h on 2×T4". Also records `amp_requested` / `amp_effective` / `precision`. |
 | `convnext_tiny_5cls_skin_v2.pth` | Same wrapped format as the originals, plus MCC |
 | `results_convnext_v2.json` | Revised Table 2 / ablation with a fairly trained ConvNeXt |
 
@@ -213,7 +228,7 @@ epochs, patience and epochs actually run all differ. It also records
 | Jointly trained fusion network (Sec. 5.1–5.3, Fig. 2) | Equal-weight softmax averaging over three independently fine-tuned backbones |
 | "weighted average" with tuned weights | Weights are uniform (1,1,1) and were never tuned. NB1 section 12 quantifies, on val only, what tuning could buy — label it secondary. |
 | lr 3e-4, wd 1e-4, ls 0.1, 30 epochs, identical protocol | Per-backbone values from `hyperparams_table.csv`; 30/9/27 epochs actually run; add the warmup+cosine schedule and the freeze phase, which the paper omits entirely |
-| Kaggle 2×T4, 32 GB, ≈6 h | The producing runs were Google Colab. Report NB4's measured `timing.json` for the one run you actually control, and do not generalise it. |
+| Kaggle 2×T4, 32 GB, ≈6 h | The producing runs were Google Colab. Report each retrain's measured `timing.json` and do not generalise across backbones. **Measured so far:** EfficientNet-B1, 25 epochs, **3.78 h on CPU, fp32** (`paper/new_results.md` §1.11). |
 | Seed 32 | Seed 42 |
 | 14,498 images; 70/15/15 | 6,655 across the 5 classes; actual split ≈78/11/11 (train 5,180 / val 748 / test 727), inherited as a fixed folder tree |
 | CLAHE, Gaussian+median denoising, artifact removal applied | None was applied. Resize + ImageNet normalisation only (plus the listed train-time augmentations). |

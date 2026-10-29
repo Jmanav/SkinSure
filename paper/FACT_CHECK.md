@@ -4,6 +4,22 @@ Audit date: 2026-10-27
 Paper audited: `paper/main.tex` (1113 lines, "Ensemble Learning for Early Detection of Skin Diseases in Indian Skin Tones")
 Repo state: branch `federated-learning` @ `5a477ce`; branches present: `main`, `federated-learning` only.
 
+> **Status note added 2026-10-29.** This file is a frozen audit of the **shipped**
+> checkpoints as of 2026-10-27. Its verdicts are not revised by later work, because
+> they describe what those artefacts contained. Two findings have since been resolved
+> by new measurements, recorded elsewhere:
+>
+> | Finding | Resolution |
+> |---|---|
+> | **E2** EfficientNet 84.97% vs stored 85.11% | Still unexplained — the retrain gives **84.73%**, matching neither. The paper's 84.97% has no traceable source and should be replaced by the retrain figure. `paper/new_results.md` §4 |
+> | **E5** ConvNeXt under-trained (9 epochs, 1 unfrozen) | Confirmed as the diagnosis; NB4 retrains with `freeze_epochs` 8→3, `patience` 5→10, `num_epochs` 30→40. Not yet run. |
+> | **E6/E7** per-class sensitivity and confusion percentages unverifiable | Now measured for EfficientNet-B1: full 5×5 confusion matrix and per-class recall/precision/specificity/AUC in `paper/new_results.md` §1.3–1.7. Eczema→Tinea is **15.9%** (paper says 22%), Tinea→Eczema **14.8%** (paper 19%), Keratosis→BCC **11.4%** (paper 10%). Ensemble figures still pending NB1. |
+> | **E8** test split is ≈11%, not 15% | Confirmed independently: 727/6,655 = 10.92%. A further finding supersedes the phrasing — **22.28% of that test split has a pHash near-duplicate in train/val**, so the reportable test set is **565 images**. `paper/experiments/README.md` |
+>
+> The central finding of this audit stands and was strengthened: the shipped weights
+> do not reproduce their stored metrics, while a byte-identical retrain reaches
+> 84.73% / 0.9704 and passes a save-then-verify gate. See `paper/REVISION_NOTES.md` §0.
+
 ## Evidence hierarchy used
 
 | Level | Source | Notes |

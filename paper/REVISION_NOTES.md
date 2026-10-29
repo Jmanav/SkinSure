@@ -69,6 +69,35 @@ provenance cannot be inspected.
 Notebooks 05, 06 and 04 produce them; each now ends with a save-then-verify cell that
 would have caught this failure immediately.
 
+### Outcome of the first retrain (2026-10-29)
+
+**The recipe reproduces. The original checkpoint was the problem, not the method.**
+
+| | stored (original) | reproduced from original weights | **retrain v2** |
+|---|---|---|---|
+| test accuracy | 85.11% | 66.99% | **84.73%** |
+| macro-AUC | 0.9636 | 0.9016 | **0.9704** |
+| MCC | not stored | — | **0.8113** |
+| save-then-verify | would fail | — | **passed** (512/512 tensors, < 1e-9) |
+
+The retrain lands **0.38 pp below** the originally claimed accuracy and **0.0068
+above** the claimed macro-AUC, from a byte-identical recipe at seed 42 (92 recipe
+checks, 0 mismatches). To size that gap: 0.38 pp is **2.77 images out of 727**, or
+**0.29 standard errors** of a single accuracy estimate at this sample size
+(SE = 1.32 pp). It is indistinguishable from noise, which is the expected result for a
+recipe that leaves `cudnn.deterministic = False`.
+
+This retires the possibility that the original figures were fabricated: they were
+*achievable*, they were simply not the numbers the shipped weights produce.
+
+This also means the paper's headline EfficientNet figure survives in substance — it
+moves 85.11% → **84.73%**, not 85.11% → 66.99%. Full detail, with every number
+independently re-derived from the raw confusion matrix, in `paper/new_results.md`.
+
+Two caveats carried forward: the run executed on **CPU in fp32** (so the paper must
+not claim mixed precision or a T4 for it), and **Keratosis recall is 61.4%**, the only
+unmet clinical target — see `paper/new_results.md` §2 and §3.
+
 ---
 
 ## 1. Architecture — Sec. 5.1–5.3 and Fig. 2 (largest rewrite)
@@ -412,15 +441,20 @@ single-corpus evaluation as a limitation.
 
 ## 12. Execution order
 
-| Step | Notebook | HW | Time | Produces |
-|---|---|---|---|---|
-| 1 | `02_dedup_phash` | CPU | 15 min | leakage answer — **runnable now**, independent of retraining |
-| 2 | `05_efficientnet_retrain` | T4 | 3–4 h | first proof the recipe reproduces |
-| 3 | `06_swin_retrain` | T4 | 3.5–4.5 h | second checkpoint |
-| 4 | `04_convnext_retrain` | T4 | 3–4.5 h | corrected ConvNeXt (next GPU week) |
-| 5 | `01_eval_and_ablation` | T4 | 20 min | all tables, CIs, ECE, figures |
-| 6 | `03_skin_tone_ita` | CPU | 12 min | the ITA equity proxy |
-| 7 | `01` §15 | CPU | 4 min | clean-test metrics |
+| Step | Notebook | HW | Time | Produces | Status |
+|---|---|---|---|---|---|
+| 1 | `02_dedup_phash` | CPU | 15 min | leakage answer | **DONE** — 22.28% of test leaks; 565-image clean manifest |
+| 2 | `05_efficientnet_retrain` | T4 | 3–4 h | first proof the recipe reproduces | **DONE** — 84.73% / 0.9704, verify passed (ran on CPU) |
+| 3 | `06_swin_retrain` | **T4 required** | 3.5–4.5 h | second checkpoint | next — CPU would need ~30 h, guard now blocks it |
+| 4 | `04_convnext_retrain` | **T4 required** | 3–4.5 h | corrected ConvNeXt | pending — **no CPU guard in this notebook** |
+| 5 | `01_eval_and_ablation` | T4 | 20 min | all tables, CIs, ECE, figures, on the clean 565 | blocked on 3 and 4 |
+| 6 | `03_skin_tone_ita` | CPU | 12 min | the ITA equity proxy | blocked on 5 |
+
+Step 7 ("`01` §15, clean-test metrics") has been **removed**: Notebook 1 now applies
+NB2's manifest from §3 onward, so the clean subset is the primary basis throughout
+rather than an appendix recomputation. §15 instead reports the contaminated full-test
+numbers and the per-configuration inflation, which is what justifies the screening in
+Sec. 4.
 
 Kaggle allows roughly 9 GPU-hours per week, so steps 2–3 fit one week and step 4 the
 next. Use **Save & Run All (Commit)** for every training run.

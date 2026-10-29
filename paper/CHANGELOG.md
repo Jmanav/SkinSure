@@ -2,13 +2,26 @@
 
 Every change made under `paper/`, with the reason and the evidence behind it.
 
-**Nothing outside `paper/` was modified.** `src/`, `configs/`, `models/checkpoints/`,
-`api/`, `scripts/`, `tests/` and the original `src/models/*.ipynb` are untouched —
-verified with `git diff --stat HEAD -- src/ configs/ models/ api/ scripts/ tests/`
-(empty). `paper/main.tex` has been **audited but not edited**.
+**Scope of changes outside `paper/`.** Through 2026-10-29 nothing outside `paper/`
+was modified. On 2026-10-29, after the NB5 retrain delivered measured results, **one
+file outside `paper/` was edited: `src/models/CLAUDE.md`** — see §10. It documented
+the 14.5k-era class counts and a `best_val_acc` contract the shipped checkpoints do
+not honour, both of which the retrain measured directly; leaving it stale would have
+left the repo's own model documentation contradicting the paper.
 
-`scratch_test_image.png` shows as deleted in `git status`. That predates this work and
-was left alone.
+`src/` code, `configs/`, `models/checkpoints/`, `api/`, `scripts/`, `tests/` and the
+original `src/models/*.ipynb` remain untouched by this work. No checkpoint was
+overwritten: the retrain writes `*_v2.pth` to Kaggle output, and the originals in
+`models/checkpoints/*/` were only ever opened read-only with
+`torch.load(..., map_location='cpu')`.
+
+Two unrelated working-tree changes predate or sit outside this work and were left
+alone: `configs/agents.yaml` (summarizer model bumped to `claude-haiku-5-5`,
+`max_tokens` 1000→600, `temperature` removed) and the deletion of
+`scratch_test_image.png`. Neither is mine; both are noted here only so the `git
+status` output is not mistaken for part of the paper work.
+
+`paper/main.tex` has been **audited but not edited.**
 
 ---
 
@@ -22,6 +35,8 @@ was left alone.
 6. [Author decisions recorded](#6-author-decisions-recorded)
 7. [Verification performed](#7-verification-performed)
 8. [What remains unverified](#8-what-remains-unverified)
+9. [Immediate next steps](#9-immediate-next-steps)
+10. [2026-10-29 — NB2 and NB5 results received, docs reconciled](#10-2026-10-29--nb2-and-nb5-results-received-docs-reconciled)
 
 ---
 
@@ -438,11 +453,13 @@ no collapsed cells, correct baked paths, no stale slugs.
 
 ## 9. Immediate next steps
 
-1. **`02_dedup_phash.ipynb`** — CPU, ~15 min, runnable now. Independent of the
-   retrains; answers the leakage question either way.
-2. **`05_efficientnet_retrain.ipynb`** — T4, 3–4 h, **Save & Run All (Commit)**.
-   Watch for val ≈ 87% and test ≈ 85% by epoch 30, and for §10 to pass. This is the
-   proof that the recipe reproduces.
+> **Superseded by §10.** Steps 1 and 2 below are **done** (2026-10-29). The current
+> next step is NB6, then NB4, then NB1. Kept for the record.
+
+1. ~~**`02_dedup_phash.ipynb`**~~ — **DONE**: 22.28% of the test set leaks into
+   train/val; `test_clean_manifest.csv` keeps 565 images.
+2. ~~**`05_efficientnet_retrain.ipynb`**~~ — **DONE**: 84.73% / 0.9704 / MCC 0.8113,
+   save-then-verify passed. The recipe reproduces.
 3. **`06_swin_retrain.ipynb`** then **`04_convnext_retrain.ipynb`** — the third goes
    in the next GPU week.
 4. **`01_eval_and_ablation.ipynb`** — once all three checkpoints exist. Produces every
@@ -452,3 +469,129 @@ no collapsed cells, correct baked paths, no stale slugs.
 Sections 1–5 of the `main.tex` rewrite (architecture, protocol, preprocessing,
 dataset, platform) can begin now, since they describe the method rather than the
 results. Sections 6–7 must wait for step 4.
+
+---
+
+## 10. 2026-10-29 — NB2 and NB5 results received, docs reconciled
+
+Two notebooks delivered results. Both were cross-checked against their raw artefacts
+before anything was written into the docs, and both produced findings that required
+changes beyond simply recording a number.
+
+### 10.1 NB2 — 22.28% test-set leakage
+
+`02_dedup_phash.ipynb` found **162 of 727 test images (22.28%)** with a perceptual-hash
+near-duplicate (pHash, Hamming d≤5) in train or val. `test_clean_manifest.csv` keeps
+**565**: Keratosis 133 · Melanoma 124 · Eczema 111 · BCC 106 · Tinea 91.
+
+This is a measurement problem, not a training problem, so the fix belongs at
+evaluation time and the training pool is left intact. Consequences recorded:
+
+- `01_eval_and_ablation.ipynb` rebuilt so the clean 565 is the **primary** basis for
+  every reported metric (§3 onward), with §6's reproduction gate deliberately left on
+  the full 727 — the only basis comparable to the values stored in the checkpoints —
+  and §15 repurposed to report full-test numbers as a contamination appendix.
+- A latent bug was found and fixed in the process: the original §15 matched the
+  manifest on absolute paths, but NB2 runs under `/kaggle/working/...` while NB1
+  mounts `/kaggle/input/...`, so the match would have returned **zero rows** and
+  silently kept all 727. It now keys on `<ClassName>/<filename>` and raises if nothing
+  matches. Six-case test suite in the scratchpad (`test_cleanmask.py`), all passing.
+- Dropped from the plan as not worth the time: internal train/train dedup (an
+  efficiency cost, not a validity one) and a threshold-sensitivity curve (d≤5 is a
+  defensible standard cut).
+
+### 10.2 NB5 — EfficientNet-B1 retrain: the recipe reproduces
+
+**84.73% / macro-AUC 0.9704 / MCC 0.8113**, save-then-verify passed (512/512 tensors
+bit-identical, reloaded accuracy matching to < 1e-9).
+
+Against the original's claimed 85.11%: **−0.38 pp**, which is **2.77 images out of 727**
+and **0.29 standard errors** at this sample size. Indistinguishable from noise for a
+recipe that leaves `cudnn.deterministic = False`. The original figures were therefore
+*achievable* — they were simply not what the shipped weights produce. That is the
+central finding confirmed from the other direction.
+
+Every number in `paper/new_results.md` §1 was independently re-derived from the raw
+5×5 confusion matrix, the train distribution and `history.csv` rather than read from
+the notebook's own summary fields — **161 checks across 15 groups**, of which 158
+agreed exactly. Two
+apparent mismatches were run down and were **not** errors: file sizes quoted in
+decimal MB vs MiB, and two different `generated_utc` fields (the checkpoint's
+provenance vs the results JSON's, 24 s apart).
+
+### 10.3 Two defects in NB5's run metadata — fixed in the generator
+
+Neither affects any metric, both would have misled the paper:
+
+1. **`timing.json` claimed hardware it never used.** The note read "Measured on
+   Kaggle, one T4" while the same dict recorded `"gpu": "CPU"`, `"vram_gb": null`.
+   The string was hardcoded. The file exists specifically to replace an unsupported
+   hardware claim, so it cannot ship carrying one. `gen_nb56.py` now derives the note
+   from `GPU_NAME` and `DEVICE.type`.
+   *Correction to an earlier draft of `new_results.md`:* the defect was in **NB5 and
+   NB6 only, not NB4** — NB4 builds its note from `gpu=GPU_NAME` with no hardcoded
+   string.
+2. **AMP was recorded as on but was a silent no-op.** `use_amp=True` on a CPU run:
+   `torch.cuda.amp.autocast` does not cast and `GradScaler` passes through, so the run
+   was pure fp32. `timing.json` now records `amp_requested`, `amp_effective` and
+   `precision` separately.
+
+### 10.4 An accelerator guard added to NB5 and NB6
+
+The CPU run also exposed an operational risk. Extrapolating from the one measured CPU
+data point (B1 fine-tune 10.49 min/epoch, 121.5 ms/image) by FLOPs ratio:
+
+| Run | GMACs vs B1 | est. CPU wall-clock | vs Kaggle's 12 h limit |
+|---|---|---|---|
+| EfficientNet-B1 | 1.0× | 3.78 h (measured) | fits |
+| Swin-Tiny (NB6) | 7.63× | **~30 h** | **exceeds by 2.5×** |
+| ConvNeXt-Tiny (NB4) to 40 ep | 7.58× | **~34 h** | **exceeds** |
+
+NB5 and NB6 now raise a `RuntimeError` in the setup cell when CUDA is absent, naming
+the fix and the estimated CPU wall-clock, with an `ALLOW_CPU = False` escape hatch.
+**NB4 has no such guard** — it predates `gen_nb56.py` and needs the accelerator
+checked manually. Recipe faithfulness re-verified after the edits: 92 checks, 0
+mismatches.
+
+### 10.5 A finding the retrain surfaced: Keratosis recall 61.4%
+
+The only unmet clinical sensitivity target (≥ 80%), and it is a **consequence of the
+composite checkpoint criterion** rather than a defect: Keratosis reaches the selection
+score only through the 0.3 `val_acc` term diluted across five classes, while Melanoma
+and BCC carry 70% of the weight directly, and it also draws the lowest loss weight
+(0.1079) of the five. Precision is high (0.9065) and specificity the best of any class
+(0.9824) — the model predicts Keratosis only when confident. Keratosis is also the
+class that regressed hardest under federated learning (70.10% → 56.70%, `fedler.md`),
+making it the weak point under both training regimes.
+
+### 10.6 Files changed in this round
+
+| File | Change |
+|---|---|
+| `paper/new_results.md` | §1.13 (`best_val_acc` convention), §1.14 (re-derivation record), §2.1–2.3 rewritten with fixes applied, §4 extended with 8 further `main.tex` discrepancies |
+| `paper/experiments/01_eval_and_ablation.ipynb` | clean-565 as primary basis; path-keying bug fixed (committed `8333829`) |
+| `paper/experiments/05_…ipynb`, `06_…ipynb` | device-derived timing note, three-field AMP reporting, CPU guard |
+| `paper/experiments/hyperparams_table.csv` | **restructured**: one row per *run* (original vs retrain), 38 columns, adds `saved_epoch`, `amp_effective`, `precision`, `device`, `best_val_acc_convention`, `reproduces` |
+| `paper/experiments/README.md` | status column, accelerator warning, step "1b" removed |
+| `paper/REVISION_NOTES.md` | §0 outcome subsection, §12 execution order updated |
+| `paper/FACT_CHECK.md` | status note mapping E2/E5/E6/E7/E8 to their resolutions; verdicts left frozen |
+| `src/models/CLAUDE.md` | **(outside `paper/`)** actual 6,655 corpus counts beside the 14.5k-era ones, measured results against the clinical targets, the `best_val_acc` caveat for shipped checkpoints |
+
+### 10.7 New `main.tex` discrepancies found while reconciling
+
+Beyond those already in `FACT_CHECK.md`:
+
+- **`main.tex:790`** states $\eta = 3\times10^{-4}$, $\lambda = 1\times10^{-4}$. The
+  actual EfficientNet config is **lr 2e-4, wd 2e-4** (checkpoint `config`). Swin uses
+  1e-4/3e-4 and ConvNeXt 2e-4/3e-4 — so no single pair is correct for all three,
+  which is the deeper problem with the sentence.
+- **`main.tex:851,915`** give EfficientNet **84.97%**, which matches neither the
+  original checkpoint (85.1124%) nor the retrain (84.7318%). Still untraceable.
+- **`main.tex:878`** claims BCC 0.97 / Melanoma 0.96 sensitivity; measured
+  **0.9917 / 0.9840**.
+- **`main.tex:890`** calls Keratosis→BCC "10%" (measured **11.4%**) while omitting
+  that Keratosis recall is 61.4% and disperses into all four other classes — the
+  paper presents its weakest class as a minor confusion.
+- **`main.tex:798-804`** "fine-tuned for 30 epochs" is right for EfficientNet's
+  original run (30 history rows, verified) but wrong as a blanket claim: ConvNeXt ran
+  9 and Swin 27.
