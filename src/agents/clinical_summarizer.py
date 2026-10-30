@@ -120,10 +120,14 @@ async def summarize(
     cfg = get_settings().agents.summarizer
     client = client or anthropic.AsyncAnthropic()  # reads ANTHROPIC_API_KEY from the environment
 
+    # No `temperature`: non-default sampling params are a 400 on Haiku 5.5, and
+    # `temperature` is rejected on every model from API version 2026-10-21.
+    # Thinking is on by default on this model, so effort is the depth/cost control
+    # and max_tokens has to cover thinking plus the JSON body.
     response = await client.messages.create(
         model=cfg.model,
         max_tokens=cfg.max_tokens,
-        temperature=cfg.temperature,
+        output_config={"effort": cfg.effort},
         system=_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": build_context(predictions, patient, xai_summary)}],
     )

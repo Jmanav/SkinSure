@@ -54,6 +54,11 @@ def test_request_carries_system_prompt_and_context(make_predictions, make_patien
     (call,) = client.calls
     assert "JSON" in call["system"]
     assert "MODEL PREDICTION" in call["messages"][0]["content"]
+    # FakeClient swallows **kwargs, so only an explicit assertion catches a param the
+    # real API would 400 on: sampling params are rejected on Haiku 5.5, and effort is
+    # the depth control in their place.
+    assert "temperature" not in call
+    assert call["output_config"] == {"effort": "low"}
 
 
 @pytest.mark.parametrize(

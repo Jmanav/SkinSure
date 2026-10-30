@@ -20,7 +20,7 @@ _PREPROCESSING_YAML = _ROOT / "configs" / "preprocessing.yaml"
 class SummarizerConfig(BaseModel):
     model: str
     max_tokens: int
-    temperature: float
+    effort: str = "low"
 
 
 class AgentsConfig(BaseModel):

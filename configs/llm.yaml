@@ -1,0 +1,24 @@
+llm:
+  model: claude-haiku-5-5
+
+# Verified against https://platform.claude.com/docs/en/about-claude/pricing (2026-10-29).
+# Haiku 5.5 is the only current model priced by prompt length: a request whose prompt
+# exceeds the threshold pays the `long` prices on every category. Prompt length counts
+# all input tokens, including cache reads and cache writes, and each request is priced
+# on its own.
+prices_usd_per_mtok:
+  claude-haiku-5-5:
+    long_prompt_threshold_tokens: 100000
+    batch_multiplier: 0.5
+    short:
+      input: 0.10
+      output: 0.50
+      cache_read: 0.01
+      cache_write_5m: 0.125
+      cache_write_1h: 0.20
+    long:
+      input: 0.50
+      output: 2.50
+      cache_read: 0.05
+      cache_write_5m: 0.625
+      cache_write_1h: 1.00

@@ -1,4 +1,7 @@
 summarizer:
-  model: claude-haiku-4-5-20251001
+  model: claude-haiku-5-5
+  # Thinking is on by default on Haiku 5.5, so max_tokens covers thinking plus the
+  # JSON body; a truncated response fails _parse(). Effort is the depth/cost control
+  # now that temperature is rejected.
   max_tokens: 1000
-  temperature: 0.2
+  effort: low
