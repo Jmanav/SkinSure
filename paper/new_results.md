@@ -19,13 +19,14 @@ Last updated 2026-10-29.
 | `05_efficientnet_retrain.ipynb` | EfficientNet-B1 | **complete, verified** | `results.zip` (9 files), 2026-10-29 |
 | `02_dedup_phash.ipynb` | — | **complete** | 2026-10-29 — **162/727 test images (22.28%) leak into train/val**; clean manifest = 565 |
 | `06_swin_retrain.ipynb` | Swin-Tiny | **complete, verified** | `results (1).zip` (9 files), 2026-10-29 |
-| `04_convnext_retrain.ipynb` | ConvNeXt-Tiny | not yet run — **check accelerator is T4** | — |
-| `01_eval_and_ablation.ipynb` | ensemble | blocked on NB4 only | — |
+| `04_convnext_retrain.ipynb` | ConvNeXt-Tiny | **complete, verified** — cell 17 did not run (see §1c.9) | console output, 2026-10-30 |
+| `01_eval_and_ablation.ipynb` | ensemble | **unblocked** — needs all three v2 checkpoints in one place | — |
 | `03_skin_tone_ita.ipynb` | — | blocked on NB1 caches | — |
 
 Nothing in this file speaks to the **ensemble**. Every ensemble number in the paper
 (accuracy, macro-AUC, MCC, the ablation table, the paired bootstrap) remains
-unmeasured until NB4 and then NB1 have run. **ConvNeXt is now the only blocker.**
+unmeasured until NB1 has run. **All three retrains are now done**; the only remaining
+step is to collect the three v2 checkpoints in one `CKPT_ROOT` and run NB1.
 
 ### The test set this file reports on
 
@@ -495,6 +496,11 @@ rather than asserted.
 overlap heavily ([81.94, 87.16] vs [83.26, 88.31]) is not a significance claim. NB1's
 paired bootstrap is the test that settles it, and it runs on the clean 565.
 
+**This section compares two of three backbones only.** ConvNeXt v2 was retrained after
+it was written and beats both (§1c.5), so "Swin wins on every aggregate" holds within
+this pair and not overall. The complementarity point above also needs rereading in
+that light: see the §4 row withdrawing the paper's version of it.
+
 ### 1b.13 Independent re-derivation of every number in §1b
 
 As with §1.14, nothing in §1b is taken from the notebook's own summary fields. Every
@@ -523,6 +529,194 @@ The loss weights, splits and train distribution are **identical** to NB5's, whic
 the expected result — both notebooks read the same fixed folder tree and construct
 weights the same way. That agreement is itself a check that neither run silently
 re-split the data.
+
+---
+
+## 1c. ConvNeXt-Tiny — recovery retrain
+
+### 1c.1 Provenance
+
+Console output pasted by the author, 2026-10-30, from `04_convnext_retrain.ipynb` run
+on Kaggle after the patch described in `CHANGELOG.md`. **The archive has not been
+received**, so unlike §1 and §1b the numbers below were not re-derived from a raw
+confusion matrix — they are re-derived from the reported per-class table (§1c.10),
+which is a weaker check. Treat §1c as verified-arithmetic, not verified-artefact,
+until the zip lands.
+
+The config changes from the original run, carried by the patch: `freeze_epochs`
+8 → 3, `patience` 5 → 10, `num_epochs` 30 → 40.
+
+### 1c.2 Headline test metrics — n = 727 (contaminated basis)
+
+| Metric | ConvNeXt v2 | Original | Δ |
+|---|---|---|---|
+| Test accuracy | **89.13%** (648/727) | 71.35% | **+17.78 pp** |
+| Macro AUC | **0.9684** | 0.9418 | +0.0266 |
+| MCC | **0.8650** | — (paper claimed 0.6507) | +0.2143 vs claim |
+| Balanced accuracy | **89.04%** | — | — |
+| Macro F1 | **0.8847** | — | — |
+
+**This is the largest single correction in the paper.** The original ConvNeXt was not
+architecturally weak — it received roughly one epoch of fine-tuning (§2.3). Given a
+fair schedule it becomes the **best of the three backbones**, beating Swin by 3.17 pp
+of accuracy.
+
+### 1c.3 Per-class test metrics
+
+| Class | Support | Recall | Precision | F1 | Specificity | AUC |
+|---|---|---|---|---|---|---|
+| Basal_Cell_Carcinoma | 121 | **1.0000** | 0.8582 | 0.9237 | 0.9670 | 0.9893 |
+| Eczema | 145 | 0.8828 | 0.8101 | 0.8449 | 0.9485 | 0.9613 |
+| Keratosis | 158 | 0.7468 | 0.9365 | 0.8310 | 0.9859 | 0.9348 |
+| Melanoma | 188 | 0.9787 | 0.9892 | 0.9840 | 0.9963 | 0.9988 |
+| Tinea | 115 | 0.8435 | 0.8362 | 0.8398 | 0.9690 | 0.9578 |
+
+### 1c.4 Clinical sensitivity targets (`src/models/CLAUDE.md`)
+
+| Class | Target | Measured | Verdict |
+|---|---|---|---|
+| Melanoma | ≥ 95% | **97.87%** | **pass** |
+| Basal_Cell_Carcinoma | ≥ 90% | **100.00%** | **pass** |
+| Eczema | ≥ 80% | 88.28% | pass |
+| Tinea | ≥ 80% | 84.35% | pass |
+| Keratosis | ≥ 80% | 74.68% | **fail** (−5.3 pp) |
+
+Four of five targets met — the best of the three retrains. **BCC recall is 100%: all
+121 are caught.** The cost is 20 false positives (from precision 0.8582), i.e. 20
+non-BCC images routed to a BCC-positive outcome. For a screening tool that is the
+right direction to err, but it should be stated rather than presented as free.
+
+Melanoma misses 4 of 188. Keratosis remains the only failing target.
+
+### 1c.5 ConvNeXt v2 vs the other two retrains — same 727 images, same splits, same seed
+
+| Metric | EfficientNet-B1 | Swin-Tiny | **ConvNeXt-Tiny v2** | Best |
+|---|---|---|---|---|
+| Accuracy | 84.73% | 85.97% | **89.13%** | ConvNeXt |
+| Macro AUC | 0.9704 | 0.9737 | **0.9684** | Swin |
+| MCC | 0.8113 | 0.8252 | **0.8650** | ConvNeXt |
+| Balanced accuracy | 84.69% | 85.67% | **89.04%** | ConvNeXt |
+| Macro F1 | 0.8376 | 0.8505 | **0.8847** | ConvNeXt |
+
+ConvNeXt wins four of five aggregates. **Macro AUC is the exception** — Swin ranks
+better (0.9737 vs 0.9684) while classifying worse, which is the signature of a
+threshold/calibration difference rather than a representation difference. NB1's
+calibration and ECE work should look at this directly; it is the kind of detail that
+makes an ensemble worth more than its best member.
+
+Per-class recall, all three:
+
+| Class | EfficientNet | Swin | ConvNeXt v2 |
+|---|---|---|---|
+| BCC | 0.9917 | 0.9835 | **1.0000** |
+| Eczema | 0.8276 | 0.8414 | **0.8828** |
+| Keratosis | 0.6139 | 0.6835 | **0.7468** |
+| Melanoma | **0.9840** | **0.9840** | 0.9787 |
+| Tinea | **0.8174** | 0.7913 | **0.8435** |
+
+ConvNeXt leads on four of five classes and is the only one to reach 100% on BCC. It
+is **marginally worst on Melanoma** — 184/188 versus 185/188 for the other two, a
+one-image difference that no confidence interval would separate.
+
+### 1c.6 Where the accuracy gain comes from
+
+ConvNeXt's +3.17 pp over Swin is 23 additional correct images out of 727. By class,
+versus Swin:
+
+| Class | Swin correct | ConvNeXt correct | Δ |
+|---|---|---|---|
+| BCC | 119 | 121 | +2 |
+| Eczema | 122 | 128 | +6 |
+| Keratosis | 108 | 118 | +10 |
+| Melanoma | 185 | 184 | −1 |
+| Tinea | 91 | 97 | +6 |
+| **total** | **625** | **648** | **+23** |
+
+**Keratosis supplies 43% of the gain**, the same class that supplied ~70% of Swin's
+margin over EfficientNet. The ranking of these three models is largely a ranking of
+how well each handles Keratosis.
+
+### 1c.7 Checkpoint integrity — verified
+
+The save-then-verify cell added by the patch ran and passed:
+
+| Check | Result |
+|---|---|
+| Tensors compared | **186, all bit-identical** |
+| Accuracy in memory | 0.8913342503 |
+| Accuracy after reload | 0.8913342503 |
+| Accuracy stored in checkpoint | 0.8913342503 |
+| `VERIFIED` | **True** |
+
+Architecture line confirms the recipe: `features=768 | classes=5 | dropout=0.4 |
+drop_path=0.2`. Written as `convnext_tiny_5cls_skin_v2.pth`, plus
+`cache_convnext_tiny_v2_test.npz`.
+
+**This closes the premise of the whole exercise.** All three shipped checkpoints
+failed to reproduce their stored metrics (`REVISION_NOTES.md` §0); all three v2
+checkpoints now reload bit-identically and re-score to their stored value.
+
+### 1c.8 The three-way correction to the paper
+
+| Backbone | Paper / stored | Measured v2 | Δ |
+|---|---|---|---|
+| EfficientNet-B1 | 85.11% | 84.73% | −0.38 pp |
+| Swin-Tiny | 85.39% | 85.97% | +0.58 pp |
+| ConvNeXt-Tiny | 71.35% | **89.13%** | **+17.78 pp** |
+
+The first two land within ±0.6 pp of their claimed values — the original numbers were
+roughly right, just not reproducible from the shipped weights. **ConvNeXt is the
+outlier**, and it changes an argument rather than a number: the paper uses ConvNeXt's
+weakness to argue for ensemble complementarity. That argument does not survive. See §4.
+
+MCC 0.8650 against the paper's claimed 0.6507 is the single largest discrepancy
+anywhere in this file.
+
+### 1c.9 Cell 17 did not run — and nothing was lost
+
+Cell 17 (the in-notebook 7-config ablation) raised `FileNotFoundError` before doing
+any work. It is the only cell that reads the *other* backbones' checkpoints: it calls
+`_resolve()` on `efficientnet_b1_5cls_skin_v2.pth` and `swin_tiny_5cls_skin_v2.pth`,
+and `_resolve()` raises if neither candidate path exists. So without the NB5 and NB6
+v2 checkpoints uploaded to `CKPT_ROOT`, the cell fails immediately — as the patch note
+in the cell itself warned.
+
+**Nothing of value was lost.** Everything through cell 15 completed: training, test
+evaluation, per-class metrics, the checkpoint save, the verify, and the probability
+cache. `results_convnext_v2.json` was *not* written, but it duplicates work NB1 does
+properly on the clean 565-image basis. The sensible move is **not** to re-run cell 17;
+it is to go straight to NB1 with all three checkpoints in place.
+
+What is missing because of it:
+
+- ConvNeXt's **confusion matrix** (hence the blank column in §3)
+- `malignant → benign` leakage and NPV for ConvNeXt (§1.8 / §1b.8 equivalents)
+- the in-notebook 7-config ablation and paired bootstrap — **NB1's job anyway**
+
+### 1c.10 Independent re-derivation
+
+Every aggregate recomputed from the per-class recalls and supports in §1c.3:
+
+| Quantity | Reported | Re-derived | Agreement |
+|---|---|---|---|
+| Support total | 727 | 727 | exact |
+| Accuracy | 0.8913342503 | 0.891332 | 2.1e-06 (4-dp rounding) |
+| Correct predictions | — | 648.00 → **648/727** | exact integer |
+| Balanced accuracy | 0.8904 | 0.890360 | exact to 4 dp |
+| Macro F1 | 0.8847 | 0.884659 | exact to 4 dp |
+| Macro AUC | 0.9684 | 0.968400 | exact |
+| Macro precision | 0.8860 | 0.886040 | exact to 4 dp |
+| Weighted precision | 0.8960 | 0.896020 | exact to 4 dp |
+
+Per-class F1 recomputed from precision and recall matches the reported F1 to 4 dp for
+all five classes (Melanoma 0.9839 vs 0.9840 reported, a rounding artefact).
+
+The residual 2.1e-06 on accuracy is explained: the recalls are given to 4 dp, so
+`Σ recall_i × support_i` cannot land exactly on 648. It rounds to 648.00.
+
+**Caveat worth repeating from §1c.1:** this confirms the reported numbers are
+*mutually consistent*. It does not independently confirm them against raw predictions,
+which is what §1.14 and §1b.13 did. Request the archive to close that gap.
 
 ---
 
@@ -637,46 +831,57 @@ it will emit the same self-contradicting note.
 
 ---
 
-## 3. The Keratosis regression — now confirmed across two architectures
+## 3. The Keratosis regression — confirmed across all three architectures
 
-Keratosis is the worst class in **both** retrains, and it is the only class that
-misses its ≥ 80% target in both:
+Keratosis is the worst class in **all three** retrains, and it is the only class that
+misses its ≥ 80% target in every one:
 
 | Backbone | Keratosis recall | vs target | Precision | Specificity |
 |---|---|---|---|---|
 | EfficientNet-B1 | **61.39%** | −18.6 pp | 0.9065 | 0.9824 |
 | Swin-Tiny | **68.35%** | −11.6 pp | 0.8710 | 0.9719 |
+| ConvNeXt-Tiny v2 | **74.68%** | −5.3 pp | 0.9365 | 0.9859 |
 
-Two independent architectures, trained from different pretrained weights on different
-hardware with different precision, land in the same place. **This is a property of the
-data and the training objective, not of either model.** That makes it a finding to
-report, not a weakness to bury.
+Three independent architectures — a CNN, a transformer, and a modernised CNN — trained
+from different pretrained weights on different hardware with different precision, land
+in the same place. **This is a property of the data and the training objective, not of
+any one model.** That makes it a finding to report, not a weakness to bury.
+
+Note the ordering: Keratosis recall rises with overall accuracy (61.4 → 68.4 → 74.7 as
+accuracy goes 84.7 → 86.0 → 89.1), and precision stays high throughout. A better model
+recovers some of the gap but does not close it — consistent with a decision-threshold
+effect rather than a capacity limit.
 
 **It leaks into every other class, in both models.** Of 158 true Keratosis:
 
-| Predicted as | EfficientNet-B1 | Swin-Tiny |
-|---|---|---|
-| BCC | 18 | 22 |
-| Eczema | 23 | 17 |
-| Melanoma | 9 | 3 |
-| Tinea | 11 | 8 |
-| **correct** | **97** | **108** |
+| Predicted as | EfficientNet-B1 | Swin-Tiny | ConvNeXt-Tiny v2 |
+|---|---|---|---|
+| BCC | 18 | 22 | — |
+| Eczema | 23 | 17 | — |
+| Melanoma | 9 | 3 | — |
+| Tinea | 11 | 8 | — |
+| **correct** | **97** | **108** | **118** |
+
+ConvNeXt's 40 misses are not yet broken down by destination: cell 17 did not run, so
+its confusion matrix was not transcribed from the console output. 118/158 correct is
+derived from the reported recall (0.7468 × 158).
 
 No other class disperses across all four alternatives this way.
 
 **High precision, low recall, highest-or-near-highest specificity.** Both models only
 predict Keratosis when very confident and otherwise assign the image elsewhere. This
 is a decision-threshold asymmetry, not an inability to represent the class — note the
-AUCs are respectable (0.9397 / 0.9436), which says the *ranking* is informative even
-where the argmax is not.
+AUCs are respectable (0.9397 / 0.9436 / 0.9348), which says the *ranking* is
+informative even where the argmax is not.
 
 **It is the composite criterion working as designed.** Checkpoint selection uses
 `0.4·mel_sens + 0.3·bcc_sens + 0.3·val_acc`. Keratosis enters only through the 0.3
 accuracy term, diluted across five classes, while Melanoma and BCC carry 70% of the
 weight directly. Keratosis also has the lowest loss weight of the five (0.1079,
-§1.10) — it receives no clinical boost and is not a small class. Both saved epochs
-therefore trade Keratosis recall for malignant sensitivity, and both get ≥ 98.3% on
-Melanoma and BCC in exchange.
+§1.10) — it receives no clinical boost and is not a small class. All three saved
+epochs therefore trade Keratosis recall for malignant sensitivity, and all three get
+≥ 97.8% on Melanoma and ≥ 98.3% on BCC in exchange (ConvNeXt reaches **100%** BCC
+recall).
 
 **Write it as a design consequence with a stated cost.** A reviewer will find it in
 Table 3 regardless; the honest framing is that the system is tuned for malignant
@@ -686,7 +891,7 @@ rule could recover Keratosis recall without retraining, and that is future work.
 
 **The same class regressed hardest under federated learning** (70.10% → 56.70%,
 `fedler.md` / `CLAUDE.md`) — so Keratosis is the weak point under centralized
-training, federated training, and both architectures. That is a three-way
+training, federated training, and all three architectures. That is a three-way
 cross-reference worth a sentence in the discussion.
 
 **Caveat.** Some of this gap may be duplicate-driven. 22.28% of the test set has a
@@ -708,13 +913,16 @@ numbers in this section until NB1 has run.
 | 30 epochs, identical protocol across backbones | EfficientNet ran **25 of 30** (early stop, saved epoch 19); Swin ran **30 of 30** (no early stop, saved epoch 30). Protocol is **not** identical across backbones — see `hyperparams_table.csv`. |
 | Mixed-precision training | Not active for EfficientNet (§2.2); **active for Swin** (fp16 autocast + GradScaler, §1b.10). Must be stated per run. |
 | BCC 0.97 / Melanoma 0.96 sensitivity (untraceable) | EfficientNet **BCC 0.9917 / Mel 0.9840** (§1.3); Swin **BCC 0.9835 / Mel 0.9840** (§1b.3) |
-| MCC values 0.8178 / 0.8119 / 0.8174 / 0.6507 | EfficientNet **0.8113**, Swin **0.8252**; ConvNeXt and ensemble pending NB4 / NB1 |
+| MCC values 0.8178 / 0.8119 / 0.8174 / 0.6507 | EfficientNet **0.8113**, Swin **0.8252**, ConvNeXt **0.8650**; ensemble pending NB1. The claimed ConvNeXt MCC of 0.6507 is out by **+0.2143** — the largest single discrepancy in this file. |
 | Eczema → Tinea 22%, Tinea → Eczema 19% | Measured per backbone: EfficientNet **15.9% / 14.8%**, Swin **11.0% / 16.5%**. Neither supports 22%. Ensemble pending NB1. |
-| Swin is the strongest single backbone | **Supported, but not significantly.** Swin beats EfficientNet on all five aggregate metrics (+1.24 pp accuracy, +0.0139 MCC), but the CIs overlap heavily at n=727 (§1b.12). Report as an observation until NB1's paired bootstrap on the clean 565. |
+| Swin is the strongest single backbone | **No longer true.** ConvNeXt v2 is the strongest: 89.13% vs Swin's 85.97%, and it wins four of five aggregates (§1c.5). Swin retains only macro-AUC. The +3.17 pp margin is ~5× Swin's margin over EfficientNet, so unlike that comparison this one is unlikely to be CI-fragile — but NB1's paired bootstrap on the clean 565 is still the test. |
+| ConvNeXt test acc 71.35% / macro-AUC 0.9418 | **89.13% / 0.9684** (§1c.2). The original figure reflects a run that got ~1 epoch of fine-tuning, not the architecture. |
+| ConvNeXt is the weak backbone, justifying ensemble complementarity | **This argument does not survive.** The weakness was a training artefact: `freeze_epochs 8`, `patience 5` and `num_epochs 30` stopped the run before the backbone had adapted (§2.3). Given `3 / 10 / 40` the same architecture is the **best** of the three. Any claim that the ensemble compensates for a weak ConvNeXt must be withdrawn, and the ablation re-argued on the NB1 numbers. |
+| Ensemble gains come from correcting ConvNeXt's errors | Unsupported and now implausible — ConvNeXt has the fewest errors of the three (79 vs 102 / 111). Whether the ensemble beats ConvNeXt alone is an **open question** for NB1, not a given. |
 | CLAHE, Gaussian+median denoising, artifact removal applied | None applied. Resize + ImageNet normalisation only, plus the listed train-time augmentations. |
 | `main.tex:790` $\eta = 3\times10^{-4}$, $\lambda = 1\times10^{-4}$ | **lr 2e-4, weight decay 2e-4** for EfficientNet (checkpoint `config`, confirmed in `results_efficientnet_v2.json`). Swin uses lr 1e-4 / wd 3e-4, ConvNeXt 2e-4 / 3e-4 — so no single pair is correct for all three, which is the deeper problem with the sentence. |
 | `main.tex:851,915` EfficientNet **84.97%** | This matches **neither** the original checkpoint (85.1124%) nor the retrain (84.7318%). See `FACT_CHECK.md` E2 — it was already untraceable before the retrain; the retrain does not explain it. Replace with **84.73%**. |
-| `main.tex:798-804` "fine-tuned for 30 epochs" | EfficientNet's **original** run did complete 30 epochs (confirmed: 30 history rows), but ConvNeXt ran 9 and Swin 27, so "30 epochs" is wrong as a blanket statement. The retrain ran **25**. |
+| `main.tex:798-804` "fine-tuned for 30 epochs" | EfficientNet's **original** run did complete 30 epochs (confirmed: 30 history rows), but ConvNeXt ran 9 and Swin 27, so "30 epochs" is wrong as a blanket statement. The retrains ran **25** (EfficientNet), **30** (Swin) and **up to 40** (ConvNeXt, `num_epochs` raised to 40 — exact count pending the archive). |
 | `main.tex:878` "sensitivities of 0.97 and 0.96" for BCC / Melanoma | Not traceable to any checkpoint. Retrained EfficientNet gives **BCC 0.9917, Melanoma 0.9840** (§1.3). Note the paper's ordering is also inverted — it implies BCC 0.97 > Melanoma 0.96, and the measured values put BCC above Melanoma too, but at different magnitudes. |
 | `main.tex:890` "Keratosis, 10% predicted as BCC" | **11.4%** (18/158) for this backbone. But the far larger story is omitted: Keratosis recall is **61.4%**, and it misclassifies into *all four* other classes (§3). The paper currently presents its weakest class as a minor confusion. |
 | `src/models/CLAUDE.md:8-14` class counts (Melanoma 5,808 … Tinea 1,150; total 14,500) | These are the **14.5k-era** counts. The actual 5-class corpus is **6,655** with train distribution BCC 968 · Eczema 1,072 · Keratosis 977 · Melanoma 1,197 · Tinea 966 (§1.10) — near-balanced, not 40%/8%. |
@@ -727,11 +935,17 @@ numbers in this section until NB1 has run.
 Do not write these into the paper yet:
 
 - **Every ensemble number** — accuracy, macro-AUC, MCC, the 7-config ablation, the
-  paired bootstrap CI vs Swin, agreement tiers, calibration/ECE. All need NB1, which
-  needs all three retrained checkpoints.
-- **The ConvNeXt-Tiny retrain** (NB4) — the only remaining blocker for NB1.
+  paired bootstrap CI, agreement tiers, calibration/ECE. All need NB1. **All three
+  retrained checkpoints now exist**; they need collecting into one `CKPT_ROOT`.
+- **Whether the ensemble beats ConvNeXt v2 alone.** This is now the central open
+  question of the ablation, and it is genuinely open: the best single model is 3.17 pp
+  ahead of the next, so the ensemble has to earn its place rather than inherit it.
 - **Whether Swin's +1.24 pp over EfficientNet is significant** (§1b.12). The paired
   bootstrap in NB1 is the test; the overlapping CIs mean it may well not be.
+- **ConvNeXt's confusion matrix, leakage and NPV** — not produced, because cell 17
+  died before writing its JSON (§1c.9). NB1 regenerates all of it on the clean basis.
+- **ConvNeXt's wall-clock, saved epoch and training dynamics** — the console paste
+  does not carry them. Request the archive.
 - **Every metric on the de-duplicated 565-image test set.** NB2 has run and the
   leakage is now quantified (22.28%), but no model has been *scored* on the clean
   subset yet — that happens in NB1. All of §1 and §1b is on the contaminated 727, so
@@ -749,7 +963,8 @@ Do not write these into the paper yet:
 
 ## Source files
 
-Both delivered on 2026-10-29 as `/kaggle/working/` output archives.
+NB5 and NB6 delivered on 2026-10-29 as `/kaggle/working/` output archives. NB4's
+archive has not been received — see below.
 
 ### `results.zip` — NB5, EfficientNet-B1
 
@@ -779,8 +994,21 @@ Both delivered on 2026-10-29 as `/kaggle/working/` output archives.
 | `best_swin_tiny_5cls_v2.pth` | bare `state_dict` (111.0 MB) |
 | `__huggingface_repos__.json` | pretrained-weight provenance (`swin_tiny_patch4_window7_224.ms_in1k` @ `4cc3a72`) |
 
-**Both archives must be re-uploaded as a Kaggle dataset before NB1 runs** — NB1 loads
-all three v2 checkpoints from `CKPT_ROOT` and asserts matching class order. Note the
-two archives share filenames (`history.csv`, `timing.json`, `confusion_test.csv`,
-`per_class_test.csv`, `__huggingface_repos__.json`), so keep them in separate folders
-when uploading or the Swin files will overwrite the EfficientNet ones.
+### NB4, ConvNeXt-Tiny — **archive not received**
+
+§1c is built from the console output pasted on 2026-10-30, not from an archive. The
+run wrote `convnext_tiny_5cls_skin_v2.pth` (186 tensors, verified bit-identical on
+reload) and `cache_convnext_tiny_v2_test.npz`, plus the usual `history.csv`,
+`timing.json`, `per_class_test.csv`, `confusion_test.csv` and curves PDF.
+`results_convnext_v2.json` was **not** written — cell 17 raised `FileNotFoundError`
+before reaching it (§1c.9).
+
+Still needed: the archive, to re-derive §1c from raw predictions the way §1.14 and
+§1b.13 were, and to recover the confusion matrix and training dynamics.
+
+**All three archives must be uploaded as a Kaggle dataset before NB1 runs** — NB1
+loads all three v2 checkpoints from `CKPT_ROOT` and asserts matching class order. The
+archives share filenames (`history.csv`, `timing.json`, `confusion_test.csv`,
+`per_class_test.csv`, `__huggingface_repos__.json`), so **keep each notebook's output
+in its own folder** or they will overwrite each other. This is exactly what stopped
+cell 17 (§1c.9): the ConvNeXt run could not see the other two checkpoints.
