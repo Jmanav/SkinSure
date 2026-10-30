@@ -1,6 +1,8 @@
 import asyncio
 import json
+from types import SimpleNamespace
 
+import anthropic
 import pytest
 from helpers import FakeClient, llm_json as _llm_json
 
@@ -76,6 +78,48 @@ def test_bad_response_raises_value_error_with_raw(make_predictions, make_patient
     with pytest.raises(ValueError) as exc:
         _run(client, make_predictions(), make_patient(), make_xai())
     assert raw in str(exc.value)
+
+
+def test_empty_content_raises_value_error(make_predictions, make_patient, make_xai):
+    # Not a parse edge case to shrug at: max_tokens has to cover thinking plus the JSON
+    # body on this model, so a response truncated mid-thought arrives with no usable
+    # text. That must fail loudly rather than yield a half-built summary.
+    client = FakeClient("")
+    with pytest.raises(ValueError, match="Could not parse"):
+        _run(client, make_predictions(), make_patient(), make_xai())
+
+
+def test_response_with_no_text_block_raises_value_error(
+    make_predictions, make_patient, make_xai, response_with_blocks
+):
+    # Thinking is on by default on Haiku 5.5, so a response can legitimately contain
+    # thinking blocks and no text block at all. summarize() filters on type == "text",
+    # which leaves nothing to parse -- assert that, rather than trusting the filter.
+    client = FakeClient(_llm_json())
+    client.messages.create = response_with_blocks(
+        client, [SimpleNamespace(type="thinking", thinking="weighing the differentials")]
+    )
+
+    with pytest.raises(ValueError, match="Could not parse"):
+        _run(client, make_predictions(), make_patient(), make_xai())
+
+
+@pytest.mark.parametrize("error_name", ["APITimeoutError", "RateLimitError"])
+def test_api_errors_propagate(make_predictions, make_patient, make_xai, make_api_error, error_name):
+    # Deliberate: there is no retry or fallback layer yet, so transport failures must
+    # surface to the caller instead of being absorbed. These are not ValueErrors, so
+    # _parse's except clause cannot catch them by accident -- this test pins that.
+    client = FakeClient(_llm_json())
+
+    async def raise_it(**kwargs):
+        raise make_api_error(error_name)
+
+    client.messages.create = raise_it
+
+    with pytest.raises(anthropic.APIError) as exc:
+        _run(client, make_predictions(), make_patient(), make_xai())
+    assert type(exc.value).__name__ == error_name
+    assert not isinstance(exc.value, ValueError)
 
 
 # --- summarize: deterministic post-processing --------------------------------------------------
