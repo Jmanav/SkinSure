@@ -42,7 +42,7 @@ Last audited 2026-10-27 against the files on disk.
 
 **Known gaps:**
 1. `tests/unit/` covers schemas, severity triage (every override branch), the clinical summarizer (fake client), the orchestrator, preprocessing and explainability (toy models and synthetic scenes); `tests/integration/` covers `/predict` and `/health` with fakes, plus one real-checkpoint run (skipped when checkpoints are absent). 179 tests pass. No `tests/fairness/` yet. Nothing in the suite touches the real LLM, a real lesion photo, or real-data accuracy.
-2. `summarize_one.py` has not been run against the real Anthropic API.
+2. `summarize_one.py` has not been run against the real Anthropic API. It is now gated by `scripts/_guard.py`: it refuses to run without `SKINSURE_ALLOW_SPEND=1` and an explicit `--max-usd` cap, and reports what the call cost.
 3. Hair and artifact removal are untuned: on 100 unmodified Basal_Cell_Carcinoma images they fired on 33% (hair) and 47% (artifacts); on a test image with dark corners the hair mask covered 57% and the step skipped itself. Both stay off until tuned and compared on a held-out set (only BCC was measured; the run did not finish for other classes).
 4. Preprocessing is unit-tested on synthetic images only (gate boundaries, guards, step order, defaults off). Those tests pin behaviour; they say nothing about tuning on real images (see gap 3).
 5. `predict_one.py` and the Grad-CAM explainer were run on a synthetic image only (a scratch file, since deleted): checkpoints load, all three backbones produce valid maps (about 2.3 s per ensemble explanation on the dev CPU, one run). Not yet checked on a real lesion photo.
@@ -91,7 +91,7 @@ Works today:
 
 ```bash
 python scripts/predict_one.py <image>     # ensemble prediction
-python scripts/summarize_one.py          # needs ANTHROPIC_API_KEY in .env; calls the real API
+SKINSURE_ALLOW_SPEND=1 python scripts/summarize_one.py --max-usd 0.05   # real API; both flags required
 python scripts/evaluate_xai.py <image_dir> [--heatmap-dir DIR]   # deletion/AOPC: Grad-CAM vs external heatmaps vs random
 ```
 
