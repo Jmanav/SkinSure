@@ -40,7 +40,10 @@ include = ["src*", "api*"]
 # talks to a local server. On Windows, ProactorEventLoop's self-pipe calls
 # socket.socketpair(), and with no AF_UNIX available CPython falls back to a
 # loopback AF_INET pair -- so every asyncio.run() and every FastAPI TestClient call
-# would otherwise fail. Egress is still blocked: connect() to any other host raises
+# would otherwise fail (TestClient drives the ASGI app through a loop, so it is the
+# same cause, not a second one). --allow-unix-socket looks like the fix and is not:
+# the problem is precisely that no Unix socket is available to fall back to.
+# Egress is still blocked: connect() to any other host raises
 # SocketConnectBlockedError, verified against a real address and through httpx.
 #
 # One limit: the guard hooks socket creation and connect(), not name resolution, so
