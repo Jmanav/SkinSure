@@ -8,3 +8,7 @@ models/baselines/**/*.pth
 models/federated/**/*.pth
 data/raw/
 data/processed/
+
+# Training-run archives downloaded from Kaggle (checkpoints, caches, histories).
+# Large binaries; the metrics they contain are transcribed into paper/new_results.md.
+*.zip

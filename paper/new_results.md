@@ -18,31 +18,34 @@ Last updated 2026-10-29.
 |---|---|---|---|
 | `05_efficientnet_retrain.ipynb` | EfficientNet-B1 | **complete, verified** | `results.zip` (9 files), 2026-10-29 |
 | `02_dedup_phash.ipynb` | — | **complete** | 2026-10-29 — **162/727 test images (22.28%) leak into train/val**; clean manifest = 565 |
-| `06_swin_retrain.ipynb` | Swin-Tiny | not yet run — **needs T4, ~30 h on CPU** | — |
-| `04_convnext_retrain.ipynb` | ConvNeXt-Tiny | not yet run — **no CPU guard, check accelerator** | — |
-| `01_eval_and_ablation.ipynb` | ensemble | blocked on NB6 + NB4 | — |
+| `06_swin_retrain.ipynb` | Swin-Tiny | **complete, verified** | `results (1).zip` (9 files), 2026-10-29 |
+| `04_convnext_retrain.ipynb` | ConvNeXt-Tiny | not yet run — **check accelerator is T4** | — |
+| `01_eval_and_ablation.ipynb` | ensemble | blocked on NB4 only | — |
 | `03_skin_tone_ita.ipynb` | — | blocked on NB1 caches | — |
 
 Nothing in this file speaks to the **ensemble**. Every ensemble number in the paper
 (accuracy, macro-AUC, MCC, the ablation table, the paired bootstrap) remains
-unmeasured until NB4, NB6 and then NB1 have run.
+unmeasured until NB4 and then NB1 have run. **ConvNeXt is now the only blocker.**
 
 ### The test set this file reports on
 
-**Every metric in §1 is computed on the full 727-image test set**, which is the basis
-NB5 evaluates against. NB2 has since shown that **22.28% of those 727 images have a
-near-duplicate in train or val**, so these figures are measured on a contaminated set
-and are expected to fall when re-scored on the clean 565.
+**Every metric in §1 and §1b is computed on the full 727-image test set**, which is
+the basis NB5 and NB6 evaluate against. NB2 has since shown that **22.28% of those 727
+images have a near-duplicate in train or val**, so these figures are measured on a
+contaminated set and are expected to fall when re-scored on the clean 565.
 
-This is not a defect in NB5 — its job is to produce a checkpoint that verifies, and it
-did. But it means **the numbers in §1 are not the ones that go in the paper.** The
-reportable figures come from `01_eval_and_ablation.ipynb`, which now applies
-`test_clean_manifest.csv` as its primary basis. Expect the clean accuracy to be
-**lower** than 84.73%; the gap is the measurement bias the screening removes, and §15
-of NB1 quantifies it.
+This is not a defect in either retrain — their job is to produce checkpoints that
+verify, and both did. But it means **the numbers in §1 and §1b are not the ones that
+go in the paper.** The reportable figures come from `01_eval_and_ablation.ipynb`,
+which now applies `test_clean_manifest.csv` as its primary basis. Expect the clean
+accuracies to be **lower** than 84.73% / 85.97%; the gap is the measurement bias the
+screening removes, and §15 of NB1 quantifies it.
 
-Treat §1 as: *the retrain reproduces the recipe and the checkpoint is sound.* Treat
-NB1's forthcoming output as: *the performance the paper claims.*
+Treat §1 and §1b as: *the retrains reproduce the recipe and the checkpoints are
+sound.* Treat NB1's forthcoming output as: *the performance the paper claims.*
+
+The one exception is NB1's **reproduction gate**, which deliberately runs on the full
+727 because that is the basis each checkpoint stored its own accuracy on.
 
 ---
 
@@ -290,10 +293,243 @@ Two apparent mismatches were run down and are **not** errors:
 
 ---
 
+## 1b. Swin-Tiny — recovery retrain
+
+### 1b.1 Provenance
+
+| Field | Value |
+|---|---|
+| Notebook | `06_swin_retrain.ipynb` |
+| Reason | recovery retrain; the shipped checkpoint did not reproduce its stored metrics |
+| Recipe | verbatim from `src/models/swin_tiny_5class.ipynb` |
+| Seed | 42 |
+| torch / timm | **2.11.0+cu128** / 1.0.29 |
+| Pretrained weights | `timm/swin_tiny_patch4_window7_224.ms_in1k` @ `4cc3a72` |
+| Device | **Tesla T4**, 14.56 GB VRAM |
+| Generated (UTC) | 2026-10-29T10:24:02Z |
+| Checkpoint | `swin_tiny_5cls_skin_v2.pth` (111.0 MB, 177 tensors) |
+
+### 1b.2 Headline test metrics — n = 727 (contaminated basis)
+
+| Metric | Value |
+|---|---|
+| Accuracy | **85.97%** (625/727), Wilson 95% CI [83.26, 88.31] |
+| Macro AUC | **0.9737** |
+| MCC | **0.8252** |
+| Balanced accuracy | **0.8567** |
+| Macro F1 | **0.8505** |
+
+The shipped checkpoint stored 85.39% / 0.9683 but did not reproduce them (it scored
+65.75% — `REVISION_NOTES.md` §0). The retrain lands **0.58 pp above** the originally
+claimed accuracy and **0.0054 above** the claimed macro-AUC, and unlike the original
+both values are reproducible from the saved weights.
+
+### 1b.3 Per-class test metrics
+
+| Class | Support | Recall (sens.) | Recall 95% CI | Precision | Specificity | AUC |
+|---|---|---|---|---|---|---|
+| Basal_Cell_Carcinoma | 121 | **0.9835** | [0.9417, 0.9955] | 0.8440 | 0.9637 | 0.9953 |
+| Eczema | 145 | **0.8414** | [0.7732, 0.8919] | 0.7722 | 0.9381 | 0.9679 |
+| Keratosis | 158 | **0.6835** | [0.6074, 0.7510] | 0.8710 | 0.9719 | 0.9436 |
+| Melanoma | 188 | **0.9840** | [0.9541, 0.9946] | 0.9788 | 0.9926 | 0.9985 |
+| Tinea | 115 | **0.7913** | [0.7082, 0.8556] | 0.7913 | 0.9608 | 0.9634 |
+
+### 1b.4 Clinical sensitivity targets
+
+| Class | Measured | Target | Met |
+|---|---|---|---|
+| Melanoma | 98.40% | ≥ 95% | ✅ |
+| Basal_Cell_Carcinoma | 98.35% | ≥ 90% | ✅ |
+| Eczema | 84.14% | ≥ 80% | ✅ |
+| **Tinea** | **79.13%** | ≥ 80% | ❌ **−0.87 pp** |
+| **Keratosis** | **68.35%** | ≥ 80% | ❌ **−11.6 pp** |
+
+NPV: **Melanoma 0.9944**, **BCC 0.9966**. Both ≥ 0.95.
+
+Tinea misses its target by less than one point, and its CI [70.82, 85.56] straddles
+80% — do not report it as a clear failure, report it as at-target within measurement
+error.
+
+### 1b.5 Confusion matrix — counts (rows = true, columns = predicted)
+
+| True ↓ / Pred → | BCC | Eczema | Keratosis | Melanoma | Tinea |
+|---|---|---|---|---|---|
+| Basal_Cell_Carcinoma | **119** | 0 | 1 | 1 | 0 |
+| Eczema | 0 | **122** | 7 | 0 | 16 |
+| Keratosis | 22 | 17 | **108** | 3 | 8 |
+| Melanoma | 0 | 0 | 3 | **185** | 0 |
+| Tinea | 0 | 19 | 5 | 0 | **91** |
+
+### 1b.6 Confusion matrix — row-normalised (%)
+
+| True ↓ / Pred → | BCC | Eczema | Keratosis | Melanoma | Tinea |
+|---|---|---|---|---|---|
+| Basal_Cell_Carcinoma | **98.3** | 0.0 | 0.8 | 0.8 | 0.0 |
+| Eczema | 0.0 | **84.1** | 4.8 | 0.0 | 11.0 |
+| Keratosis | 13.9 | 10.8 | **68.4** | 1.9 | 5.1 |
+| Melanoma | 0.0 | 0.0 | 1.6 | **98.4** | 0.0 |
+| Tinea | 0.0 | 16.5 | 4.3 | 0.0 | **79.1** |
+
+### 1b.7 Paper Sec. 6.3 confusion claims
+
+| Paper claim | Swin-Tiny | EfficientNet-B1 |
+|---|---|---|
+| Eczema → Tinea 22% | **11.0%** (16/145) | 15.9% |
+| Tinea → Eczema 19% | **16.5%** (19/115) | 14.8% |
+| Keratosis → BCC 10% | **13.9%** (22/158) | 11.4% |
+
+Neither backbone supports the 22% figure. Both exceed the 10% Keratosis→BCC figure.
+
+### 1b.8 Malignant / benign leakage
+
+| Direction | Rate |
+|---|---|
+| True malignant predicted benign | **1.29%** (4/309) |
+| True benign predicted malignant | **5.98%** (25/418) |
+
+Identical malignant-miss rate to EfficientNet (4/309), but a different composition:
+3 Melanoma→Keratosis plus **1 BCC→Melanoma** (an error that stays within the
+malignant set and would still be referred) and 1 BCC→Keratosis.
+
+### 1b.9 Training dynamics — the saved epoch is the last epoch
+
+| Field | Value |
+|---|---|
+| Epochs run | **30 of 30** — ran to completion, no early stop |
+| Saved epoch | **30 (the final epoch)** |
+| Best composite | **0.9433919022** |
+| Val acc @ saved epoch | 84.49% |
+| Melanoma sens. @ saved epoch | **100.00%** |
+| BCC sens. @ saved epoch | 96.64% |
+| Train−val gap, last 5 epochs | +1.46% to +3.69%, mean **2.70%** (target < 5%) |
+
+**This is the one result that needs a caveat.** The composite criterion peaked at the
+very last epoch, so the run was still improving when the 30-epoch budget ran out.
+Early stopping never fired (`patience = 5`; the longest run of non-improving epochs
+was 4, at epochs 24–25 and 27–29). Best val accuracy came at epoch 27 (84.89%), and
+the composite trajectory over the last eight epochs — 0.9398, 0.9322, 0.9389, 0.9410,
+0.9401, 0.9381, 0.9398, **0.9434** — is flat-with-noise, not climbing.
+
+So the model is **converged but not demonstrably at its optimum**. It is not
+overfitting: the final gap is 3.69%, inside the 5% target, and val loss is still
+drifting down. A longer budget would probably buy a little more. Two honest options:
+
+1. **Report as-is** and state that Swin reached its configured 30-epoch budget with
+   the composite still marginally improving. Defensible, costs nothing, and keeps the
+   recipe byte-identical to the original — which is the stated design rule.
+2. **Re-run with more epochs.** Breaks the byte-identical-recipe rule, costs another
+   T4 hour, and on this evidence would gain well under a point.
+
+**Recommendation: option 1.** The flat trajectory says there is little left on the
+table, and recipe fidelity is worth more to the paper than a fractional gain. But the
+sentence must appear in Methods — a reviewer who reads `saved_epoch == num_epochs`
+will otherwise ask.
+
+### 1b.10 Measured hardware and wall-clock
+
+| Field | Value |
+|---|---|
+| Device | **Tesla T4** (cuda), 14.56 GB |
+| Wall-clock | **0.588 h** (2,116.0 s) for 30 epochs |
+| Mean epoch | **1.18 min** |
+| Frozen phase (ep 1–8) | 67.6 s/epoch ≈ 104 ms/step |
+| Fine-tune phase (ep 9–30) | 71.6 s/epoch ≈ 110 ms/step |
+| Batch size | 8 (648 steps/epoch) |
+| Mixed precision | **active** (fp16 autocast + GradScaler) |
+
+Σ`epoch_seconds` = 2,115.87 s vs 2,116.02 s reported (0.15 s overhead) — consistent.
+
+**This ran ~6× faster than `paper/experiments/README.md` estimates** (3.5–4.5 h). The
+README figure was an unmeasured guess; 0.59 h is the measured value. Note the frozen
+→ unfrozen step-time jump is only 1.06× here, versus 2.3× for EfficientNet on CPU —
+on a T4 at batch 8 the run is data-loader-bound, not compute-bound, which is also why
+Swin finished faster in wall-clock than the *smaller* EfficientNet did on CPU.
+
+**Revise the README's GPU-hour budget.** Swin cost 0.59 GPU-h against a 4 h
+allocation. The ~9 GPU-h/week Kaggle budget is nowhere near binding.
+
+### 1b.11 Checkpoint integrity
+
+§10 save-then-verify passed:
+
+| Check | Result |
+|---|---|
+| Tensors compared | **177**, all bit-identical to the evaluated model |
+| `test_acc` in memory | 0.859697386519945 |
+| `test_acc` reloaded from disk | 0.859697386519945 |
+| `test_acc` stored in checkpoint | 0.859697386519945 |
+
+Independently confirmed by parsing the `.pth` directly: 177 tensor storages,
+`_metadata` present (`strict=True` will load), `classes` exactly
+`['Basal_Cell_Carcinoma','Eczema','Keratosis','Melanoma','Tinea']`, no fusion
+tensors. Tensors are stored on `cuda:0` — harmless, since every loader passes
+`map_location`.
+
+### 1b.12 Swin vs EfficientNet — same 727 images, same splits, same seed
+
+| Metric | EfficientNet-B1 | Swin-Tiny | Δ |
+|---|---|---|---|
+| Accuracy | 0.8473 | **0.8597** | **+0.0124** |
+| Macro AUC | 0.9704 | **0.9737** | +0.0033 |
+| MCC | 0.8113 | **0.8252** | +0.0139 |
+| Balanced accuracy | 0.8469 | **0.8567** | +0.0098 |
+| Macro F1 | 0.8376 | **0.8505** | +0.0129 |
+
+Per-class recall:
+
+| Class | EfficientNet-B1 | Swin-Tiny | Δ |
+|---|---|---|---|
+| Basal_Cell_Carcinoma | **0.9917** | 0.9835 | −0.0083 |
+| Eczema | 0.8276 | **0.8414** | +0.0138 |
+| **Keratosis** | 0.6139 | **0.6835** | **+0.0696** |
+| Melanoma | 0.9840 | 0.9840 | 0.0000 |
+| Tinea | **0.8174** | 0.7913 | −0.0261 |
+
+Swin wins on every aggregate metric, and the bulk of the margin is **Keratosis
+recall, +7.0 pp**. The two models are *identical* on Melanoma (185/188 each — and on
+the same failure mode, Melanoma→Keratosis) and trade places on BCC and Tinea. That
+complementarity is exactly the argument for the ensemble, and it is now measurable
+rather than asserted.
+
+**Do not call this a significant difference yet.** +1.24 pp on n=727 with CIs that
+overlap heavily ([81.94, 87.16] vs [83.26, 88.31]) is not a significance claim. NB1's
+paired bootstrap is the test that settles it, and it runs on the clean 565.
+
+### 1b.13 Independent re-derivation of every number in §1b
+
+As with §1.14, nothing in §1b is taken from the notebook's own summary fields. Every
+value was recomputed from the raw 5×5 confusion matrix, the train distribution and
+`history.csv`, then compared against what this file claims:
+
+| Group | Checks | Result |
+|---|---|---|
+| `confusion_test.csv` ≡ JSON matrix; row sums ≡ supports | 6 | exact |
+| accuracy / balanced acc / MCC (Gorodkin) / macro-F1 from CM | 5 | ≤ 2e-16 |
+| per-class recall / precision / specificity from CM | 15 | exact |
+| `per_class_test.csv` ≡ JSON | 25 | exact |
+| row-normalised CM (all 25 cells) | 25 | exact to 1 dp |
+| §1b.7 confusion claims, §1b.8 leakage rates, NPVs | 10 | exact |
+| composite = 0.4·mel + 0.3·bcc + 0.3·val_acc at saved epoch | 3 | 0.9433919022154316 |
+| saved_epoch = argmax(composite) = 30; no early stop (max non-improving run = 4 < patience 5) | 4 | exact |
+| train−val gap range and mean, last 5 epochs | 3 | exact |
+| loss weights re-derived from `1/√count` + boosts | 5 | 0.0 |
+| timing: Σ`epoch_seconds` vs wall-clock, phase means, ms/step | 8 | ≤ 0.15 s |
+| Wilson 95% CIs (accuracy + all 5 recalls) | 12 | ≤ 1e-4 |
+| splits sum to 6,655; identical to NB5's splits | 4 | exact |
+| checkpoint: 177 tensors, `_metadata`, class order, 0 fusion tensors | 4 | pass |
+| §1b.12 cross-model deltas | 10 | exact |
+
+The loss weights, splits and train distribution are **identical** to NB5's, which is
+the expected result — both notebooks read the same fixed folder tree and construct
+weights the same way. That agreement is itself a check that neither run silently
+re-split the data.
+
+---
+
 ## 2. Defects in the run metadata
 
-Neither affects any metric above. Both must be corrected before the numbers are
-quoted in the paper.
+These affected the **EfficientNet (NB5)** run. **Both are fixed in NB6** — see §2.4.
+Neither ever affected a metric.
 
 ### 2.1 `timing.json` reports hardware it did not use
 
@@ -369,35 +605,94 @@ The guard costs seconds; discovering the problem afterwards costs the run.
 **NB4 has no such guard** — it predates `gen_nb56.py`. Either add one before running
 it or confirm the accelerator manually.
 
+**Outcome: the guard worked.** NB6 ran on a Tesla T4 and finished in **0.59 h**
+(§1b.10) rather than the projected ~30 h on CPU. The ~30 h estimate was never tested
+against a real CPU Swin run, so treat it as what it was — an order-of-magnitude
+argument for adding the guard, not a measurement. The guard is still the right thing
+to keep for NB4.
+
+### 2.4 Both defects are fixed in NB6 — verified
+
+NB6's metadata is correct where NB5's was wrong. Confirmed by reading the delivered
+`timing.json`:
+
+| Field | NB5 (EfficientNet) | NB6 (Swin) |
+|---|---|---|
+| `gpu` | `"CPU"` | `"Tesla T4"` |
+| `vram_gb` | `null` | `14.56` |
+| `note` | **false** — claimed "one T4" on a CPU run | **correct** — "Measured on Tesla T4 (cuda) … Mixed precision active." |
+| `amp` | `true` (a no-op; §2.2) | field replaced |
+| `amp_requested` | — | `true` |
+| `amp_effective` | — | `true` |
+| `precision` | — | `"mixed (fp16 autocast + GradScaler)"` |
+
+The hardcoded hardware string is gone — the note is now generated from `GPU_NAME` —
+and the single ambiguous `amp` flag has been split into **requested** vs **effective**
+plus an explicit `precision` string. For NB6 mixed precision was genuinely active
+(cuda + `torch 2.11.0+cu128`), so `amp_effective: true` is a real measurement, not an
+echo of the config.
+
+**NB4 still carries the NB5-era bug.** Fix its `timing.json` cell before running, or
+it will emit the same self-contradicting note.
+
 ---
 
-## 3. The Keratosis regression
+## 3. The Keratosis regression — now confirmed across two architectures
 
-Keratosis recall is **61.39%**, 18.6 pp below its ≥ 80% target and the only unmet
-sensitivity target. It is not a measurement artefact and it should be reported as a
-finding, not buried.
+Keratosis is the worst class in **both** retrains, and it is the only class that
+misses its ≥ 80% target in both:
 
-**It leaks into every other class.** Of 158 true Keratosis: 18 → BCC, 23 → Eczema,
-9 → Melanoma, 11 → Tinea, 97 correct. No other class disperses this way.
+| Backbone | Keratosis recall | vs target | Precision | Specificity |
+|---|---|---|---|---|
+| EfficientNet-B1 | **61.39%** | −18.6 pp | 0.9065 | 0.9824 |
+| Swin-Tiny | **68.35%** | −11.6 pp | 0.8710 | 0.9719 |
 
-**Precision is high (0.9065) while recall is low.** The model only predicts Keratosis
-when very confident, and otherwise assigns the image elsewhere. Specificity is the
-highest of any class (0.9824).
+Two independent architectures, trained from different pretrained weights on different
+hardware with different precision, land in the same place. **This is a property of the
+data and the training objective, not of either model.** That makes it a finding to
+report, not a weakness to bury.
 
-**This is the composite criterion working as designed.** Checkpoint selection uses
+**It leaks into every other class, in both models.** Of 158 true Keratosis:
+
+| Predicted as | EfficientNet-B1 | Swin-Tiny |
+|---|---|---|
+| BCC | 18 | 22 |
+| Eczema | 23 | 17 |
+| Melanoma | 9 | 3 |
+| Tinea | 11 | 8 |
+| **correct** | **97** | **108** |
+
+No other class disperses across all four alternatives this way.
+
+**High precision, low recall, highest-or-near-highest specificity.** Both models only
+predict Keratosis when very confident and otherwise assign the image elsewhere. This
+is a decision-threshold asymmetry, not an inability to represent the class — note the
+AUCs are respectable (0.9397 / 0.9436), which says the *ranking* is informative even
+where the argmax is not.
+
+**It is the composite criterion working as designed.** Checkpoint selection uses
 `0.4·mel_sens + 0.3·bcc_sens + 0.3·val_acc`. Keratosis enters only through the 0.3
 accuracy term, diluted across five classes, while Melanoma and BCC carry 70% of the
-weight directly. Its loss weight is also the lowest of the five (0.1079, §1.10). The
-saved epoch therefore trades Keratosis recall for malignant sensitivity — and gets
-98.40% / 99.17% on Melanoma / BCC in exchange.
+weight directly. Keratosis also has the lowest loss weight of the five (0.1079,
+§1.10) — it receives no clinical boost and is not a small class. Both saved epochs
+therefore trade Keratosis recall for malignant sensitivity, and both get ≥ 98.3% on
+Melanoma and BCC in exchange.
 
-**Write it as a design consequence with a stated cost, not as an unexplained weakness.**
-A reviewer will find it in Table 3 regardless; the honest framing is that the system
-is tuned for malignant recall and the price is paid by one benign-adjacent class.
+**Write it as a design consequence with a stated cost.** A reviewer will find it in
+Table 3 regardless; the honest framing is that the system is tuned for malignant
+recall and the price is paid by one benign-adjacent class. The AUC evidence supports a
+constructive follow-up sentence: a per-class threshold or a cost-sensitive decision
+rule could recover Keratosis recall without retraining, and that is future work.
 
-**It is also the class that regressed hardest under federated learning** (70.10% →
-56.70%, `fedler.md` / `CLAUDE.md`), i.e. the same class is the weak point under both
-training regimes. That cross-reference is worth one sentence in the discussion.
+**The same class regressed hardest under federated learning** (70.10% → 56.70%,
+`fedler.md` / `CLAUDE.md`) — so Keratosis is the weak point under centralized
+training, federated training, and both architectures. That is a three-way
+cross-reference worth a sentence in the discussion.
+
+**Caveat.** Some of this gap may be duplicate-driven. 22.28% of the test set has a
+near-duplicate in train/val (NB2), and the clean-565 rescoring in NB1 will show
+whether Keratosis recall moves differently from the other classes. Do not finalise the
+numbers in this section until NB1 has run.
 
 ---
 
@@ -406,14 +701,16 @@ training regimes. That cross-reference is worth one sentence in the discussion.
 | Paper claim | Replace with |
 |---|---|
 | EfficientNet test acc 85.11% / macro-AUC 0.9636 | **84.73% / 0.9704** (reproducible; the original was not) |
+| Swin test acc 85.39% / macro-AUC 0.9683 | **85.97% / 0.9737** (reproducible; the original was not) |
 | 14,498 images, 70/15/15 split | **6,655** images across 5 classes, **≈78/11/11** (5,180 / 748 / 727) |
-| Kaggle 2×T4, 32 GB, ≈6 h | **CPU, 3.78 h, 25 epochs** for this run. Do not generalise to the other backbones. |
+| Kaggle 2×T4, 32 GB, ≈6 h | Per run, measured: EfficientNet **CPU, 3.78 h, 25 epochs**; Swin **1×T4, 0.59 h, 30 epochs**. One sentence cannot cover both — report per backbone. |
 | Seed 32 | **Seed 42** |
-| 30 epochs, identical protocol across backbones | EfficientNet ran **25 of 30** (early stop at patience 6, saved epoch 19). Protocol is **not** identical across backbones — see `hyperparams_table.csv`. |
-| Mixed-precision training | Not active for this run (§2.2) |
-| BCC 0.97 / Melanoma 0.96 sensitivity (untraceable) | **BCC 0.9917 / Melanoma 0.9840**, both traceable to §1.3 |
-| MCC values 0.8178 / 0.8119 / 0.8174 / 0.6507 | EfficientNet **0.8113**; the rest pending NB4 / NB6 / NB1 |
-| Eczema → Tinea 22%, Tinea → Eczema 19% | **15.9%**, **14.8%** for this backbone (ensemble pending NB1) |
+| 30 epochs, identical protocol across backbones | EfficientNet ran **25 of 30** (early stop, saved epoch 19); Swin ran **30 of 30** (no early stop, saved epoch 30). Protocol is **not** identical across backbones — see `hyperparams_table.csv`. |
+| Mixed-precision training | Not active for EfficientNet (§2.2); **active for Swin** (fp16 autocast + GradScaler, §1b.10). Must be stated per run. |
+| BCC 0.97 / Melanoma 0.96 sensitivity (untraceable) | EfficientNet **BCC 0.9917 / Mel 0.9840** (§1.3); Swin **BCC 0.9835 / Mel 0.9840** (§1b.3) |
+| MCC values 0.8178 / 0.8119 / 0.8174 / 0.6507 | EfficientNet **0.8113**, Swin **0.8252**; ConvNeXt and ensemble pending NB4 / NB1 |
+| Eczema → Tinea 22%, Tinea → Eczema 19% | Measured per backbone: EfficientNet **15.9% / 14.8%**, Swin **11.0% / 16.5%**. Neither supports 22%. Ensemble pending NB1. |
+| Swin is the strongest single backbone | **Supported, but not significantly.** Swin beats EfficientNet on all five aggregate metrics (+1.24 pp accuracy, +0.0139 MCC), but the CIs overlap heavily at n=727 (§1b.12). Report as an observation until NB1's paired bootstrap on the clean 565. |
 | CLAHE, Gaussian+median denoising, artifact removal applied | None applied. Resize + ImageNet normalisation only, plus the listed train-time augmentations. |
 | `main.tex:790` $\eta = 3\times10^{-4}$, $\lambda = 1\times10^{-4}$ | **lr 2e-4, weight decay 2e-4** for EfficientNet (checkpoint `config`, confirmed in `results_efficientnet_v2.json`). Swin uses lr 1e-4 / wd 3e-4, ConvNeXt 2e-4 / 3e-4 — so no single pair is correct for all three, which is the deeper problem with the sentence. |
 | `main.tex:851,915` EfficientNet **84.97%** | This matches **neither** the original checkpoint (85.1124%) nor the retrain (84.7318%). See `FACT_CHECK.md` E2 — it was already untraceable before the retrain; the retrain does not explain it. Replace with **84.73%**. |
@@ -432,11 +729,13 @@ Do not write these into the paper yet:
 - **Every ensemble number** — accuracy, macro-AUC, MCC, the 7-config ablation, the
   paired bootstrap CI vs Swin, agreement tiers, calibration/ECE. All need NB1, which
   needs all three retrained checkpoints.
-- **ConvNeXt-Tiny and Swin-Tiny retrains** (NB4, NB6).
+- **The ConvNeXt-Tiny retrain** (NB4) — the only remaining blocker for NB1.
+- **Whether Swin's +1.24 pp over EfficientNet is significant** (§1b.12). The paired
+  bootstrap in NB1 is the test; the overlapping CIs mean it may well not be.
 - **Every metric on the de-duplicated 565-image test set.** NB2 has run and the
   leakage is now quantified (22.28%), but no model has been *scored* on the clean
-  subset yet — that happens in NB1. All of §1 is on the contaminated 727, so the
-  EfficientNet accuracy that goes in the paper is still unmeasured.
+  subset yet — that happens in NB1. All of §1 and §1b is on the contaminated 727, so
+  **both** retrains' paper-reportable accuracies are still unmeasured.
 - **The leakage inflation gap** — how much the 22.28% overlap inflated each
   configuration. NB1 §15 computes it, and it is the one number that justifies the
   screening in Sec. 4.
@@ -450,16 +749,38 @@ Do not write these into the paper yet:
 
 ## Source files
 
-All under `paper/experiments/` output, delivered as `results.zip` on 2026-10-29:
+Both delivered on 2026-10-29 as `/kaggle/working/` output archives.
+
+### `results.zip` — NB5, EfficientNet-B1
 
 | File | Contents |
 |---|---|
 | `results_efficientnet_v2.json` | the single source of truth — config, splits, per-class, CM, full history, timing, verification |
 | `history.csv` | 25 rows, per-epoch metrics + `epoch_seconds` |
-| `timing.json` | wall-clock and device (see §2.1) |
+| `timing.json` | wall-clock and device (**carries the false T4 note — see §2.1**) |
 | `per_class_test.csv` | per-class support / recall / precision / specificity / AUC |
 | `confusion_test.csv` | 5×5 counts |
 | `curves_efficientnet_v2.pdf` | loss / accuracy / gap / sensitivity / composite / min-per-epoch |
 | `efficientnet_b1_5cls_skin_v2.pth` | wrapped checkpoint (27.83 MB) — the one other notebooks consume |
 | `best_efficientnet_b1_5cls_v2.pth` | bare `state_dict` (27.82 MB) |
-| `__huggingface_repos__.json` | pretrained-weight provenance |
+| `__huggingface_repos__.json` | pretrained-weight provenance (`efficientnet_b1.ra4_e3600_r240_in1k` @ `4e4a9c0`) |
+
+### `results (1).zip` — NB6, Swin-Tiny
+
+| File | Contents |
+|---|---|
+| `results_swin_v2.json` | the single source of truth for §1b |
+| `history.csv` | 30 rows, per-epoch metrics + `epoch_seconds` |
+| `timing.json` | wall-clock and device — **correct**, with `amp_requested` / `amp_effective` / `precision` (§2.4) |
+| `per_class_test.csv` | per-class support / recall / precision / specificity / AUC |
+| `confusion_test.csv` | 5×5 counts |
+| `curves_swin_v2.pdf` | loss / accuracy / gap / sensitivity / composite / min-per-epoch |
+| `swin_tiny_5cls_skin_v2.pth` | wrapped checkpoint (111.0 MB, 177 tensors) — the one other notebooks consume |
+| `best_swin_tiny_5cls_v2.pth` | bare `state_dict` (111.0 MB) |
+| `__huggingface_repos__.json` | pretrained-weight provenance (`swin_tiny_patch4_window7_224.ms_in1k` @ `4cc3a72`) |
+
+**Both archives must be re-uploaded as a Kaggle dataset before NB1 runs** — NB1 loads
+all three v2 checkpoints from `CKPT_ROOT` and asserts matching class order. Note the
+two archives share filenames (`history.csv`, `timing.json`, `confusion_test.csv`,
+`per_class_test.csv`, `__huggingface_repos__.json`), so keep them in separate folders
+when uploading or the Swin files will overwrite the EfficientNet ones.

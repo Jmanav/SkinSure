@@ -15,11 +15,13 @@ overwritten: the retrain writes `*_v2.pth` to Kaggle output, and the originals i
 `models/checkpoints/*/` were only ever opened read-only with
 `torch.load(..., map_location='cpu')`.
 
-Two unrelated working-tree changes predate or sit outside this work and were left
-alone: `configs/agents.yaml` (summarizer model bumped to `claude-haiku-5-5`,
-`max_tokens` 1000→600, `temperature` removed) and the deletion of
-`scratch_test_image.png`. Neither is mine; both are noted here only so the `git
-status` output is not mistaken for part of the paper work.
+Unrelated working-tree changes sit outside this work and were left alone: the
+summarizer's move to `claude-haiku-5-5` (`configs/agents.yaml`, `src/utils/config.py`,
+`src/agents/clinical_summarizer.py`, `tests/unit/test_clinical_summarizer.py`, plus
+the new `configs/llm.yaml` and `src/utils/costs.py`) and the deletion of
+`scratch_test_image.png`. None of these are mine; they are noted here only so the
+`git status` output is not mistaken for part of the paper work. They were committed
+separately on 2026-10-30, ahead of this work, in `6961cdb`.
 
 `paper/main.tex` has been **audited but not edited.**
 
