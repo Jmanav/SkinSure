@@ -41,9 +41,23 @@ class _MeteredClient:
         return response
 
 
+CASES = ("disagreement", "artifact", "urgent")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Summarise one hard-coded case through the real Anthropic API."
+    )
+    parser.add_argument(
+        "--case",
+        choices=CASES,
+        default="disagreement",
+        help=(
+            "Which scenario to send. 'disagreement': low agreement -> the standard caveat is "
+            "appended. 'artifact': artifact_flag=True -> confidence downgraded one tier and "
+            "recapture forced. 'urgent': melanoma at 0.91 -> the LLM should return urgent, and "
+            "the schema validator requires immediate_referral with it."
+        ),
     )
     add_spend_args(parser)
     return parser.parse_args()
@@ -55,13 +69,35 @@ async def main() -> None:
 
     load_dotenv()  # puts ANTHROPIC_API_KEY from .env into the environment
 
-    predictions = Predictions(
-        primary_label=DiseaseClass.MELANOMA,
-        primary_confidence=0.62,
-        secondary_label=DiseaseClass.KERATOSIS,
-        secondary_confidence=0.25,
-        agreement_score=0.33,  # only 1 of 3 agrees -> "low" tier -> disagreement caveat
-    )
+    # Each case isolates one behaviour that the fake-client tests pin but cannot prove
+    # against a real model: the caveat append, the artifact downgrade, and whether the
+    # LLM itself honours the urgent -> immediate_referral rule the validator also enforces.
+    if args.case == "disagreement":
+        predictions = Predictions(
+            primary_label=DiseaseClass.MELANOMA,
+            primary_confidence=0.62,
+            secondary_label=DiseaseClass.KERATOSIS,
+            secondary_confidence=0.25,
+            agreement_score=0.33,  # only 1 of 3 agrees -> "low" tier -> disagreement caveat
+        )
+    elif args.case == "artifact":
+        # All three models agree, so the only thing that may lower confidence is the
+        # artifact flag -- which makes the downgrade visible rather than confounded.
+        predictions = Predictions(
+            primary_label=DiseaseClass.ECZEMA,
+            primary_confidence=0.88,
+            secondary_label=DiseaseClass.TINEA,
+            secondary_confidence=0.07,
+            agreement_score=1.0,
+        )
+    else:  # urgent
+        predictions = Predictions(
+            primary_label=DiseaseClass.MELANOMA,
+            primary_confidence=0.91,
+            secondary_label=DiseaseClass.KERATOSIS,
+            secondary_confidence=0.05,
+            agreement_score=1.0,
+        )
     patient = PatientMetadata(
         patient_id=1,
         patient_name="Test Patient",
@@ -75,14 +111,23 @@ async def main() -> None:
         medical_history=["diabetes"],
         is_spreading_rapidly=False,
     )
-    xai = XAISummary(
-        focus_description=FocusRegion.LESION_CENTRE,
-        boundary_alignment=BoundaryAlignment.PARTIAL,
-        artifact_flag=False,
-    )
+    if args.case == "artifact":
+        # The schema validator requires artifact_flag=True when focus is `artifact`.
+        xai = XAISummary(
+            focus_description=FocusRegion.ARTIFACT,
+            boundary_alignment=BoundaryAlignment.POOR,
+            artifact_flag=True,
+        )
+    else:
+        xai = XAISummary(
+            focus_description=FocusRegion.LESION_CENTRE,
+            boundary_alignment=BoundaryAlignment.PARTIAL,
+            artifact_flag=False,
+        )
 
     client = _MeteredClient(anthropic.AsyncAnthropic())
     summary = await summarize(predictions, patient, xai, client=client)
+    print(f"case: {args.case}")
     print(summary.model_dump_json(indent=2))
 
     # After the request, because the cost is only known from the response. One call,
