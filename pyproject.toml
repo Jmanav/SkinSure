@@ -23,9 +23,27 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff", "httpx"]
+dev = ["pytest", "pytest-socket", "ruff", "httpx"]
 federated = ["flwr[simulation]>=1.12", "scikit-learn"]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["src*", "api*"]
+
+[tool.pytest.ini_options]
+# Block network access in every test run. The suite's invariant is that unit and
+# integration tests never reach a real API -- the LLM client is always injected as a
+# fake -- and this enforces it instead of trusting it. A test that genuinely needs
+# the network must say so with the `enable_socket` marker; there are none today.
+#
+# 127.0.0.1 is allowed because asyncio's event loop needs it, not because any test
+# talks to a local server. On Windows, ProactorEventLoop's self-pipe calls
+# socket.socketpair(), and with no AF_UNIX available CPython falls back to a
+# loopback AF_INET pair -- so every asyncio.run() and every FastAPI TestClient call
+# would otherwise fail. Egress is still blocked: connect() to any other host raises
+# SocketConnectBlockedError, verified against a real address and through httpx.
+#
+# One limit: the guard hooks socket creation and connect(), not name resolution, so
+# getaddrinfo() still succeeds. A test cannot reach the network, but DNS is not a
+# sealed boundary -- this enforces "no API calls", not "no packets".
+addopts = "--disable-socket --allow-hosts=127.0.0.1"
