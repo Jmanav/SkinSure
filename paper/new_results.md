@@ -20,13 +20,25 @@ Last updated 2026-10-29.
 | `02_dedup_phash.ipynb` | — | **complete** | 2026-10-29 — **162/727 test images (22.28%) leak into train/val**; clean manifest = 565 |
 | `06_swin_retrain.ipynb` | Swin-Tiny | **complete, verified** | `results (1).zip` (9 files), 2026-10-29 |
 | `04_convnext_retrain.ipynb` | ConvNeXt-Tiny | **complete, verified** — cell 17 did not run (see §1c.9) | console output, 2026-10-30 |
-| `01_eval_and_ablation.ipynb` | ensemble | **unblocked** — needs all three v2 checkpoints in one place | — |
+| `01_eval_and_ablation.ipynb` | ensemble | **ready to run** — patched to resolve `*_v2.pth`; needs the three checkpoints uploaded (see Source files) | — |
 | `03_skin_tone_ita.ipynb` | — | blocked on NB1 caches | — |
 
 Nothing in this file speaks to the **ensemble**. Every ensemble number in the paper
 (accuracy, macro-AUC, MCC, the ablation table, the paired bootstrap) remains
-unmeasured until NB1 has run. **All three retrains are now done**; the only remaining
-step is to collect the three v2 checkpoints in one `CKPT_ROOT` and run NB1.
+unmeasured until NB1 has run. **All three retrains are now done**; what remains is to
+collect the three v2 checkpoints plus NB2's clean manifest in one place and run NB1.
+
+NB1 would have failed at cell 4 before this was noticed: its `_resolve()` calls named
+only the **original** filenames (`efficientnet_b1_5cls_skin.pth`), while the retrains
+wrote `*_v2.pth`. That is the same failure that stopped NB4's cell 17 — a missing
+candidate path, raised before any work is done. Cell 4 now tries the v2 name first
+and refuses outright if the three resolved paths are not all the same generation,
+because an ensemble built from one original and two retrains would be meaningless
+and would otherwise run silently. The rest of NB1 needed no change: `load_backbone()`
+already reads `dropout` and `drop_path_rate` from `ckpt['config']`, so the v2 recipes
+load under `strict=True`, and the §6 reproduction gate compares against each
+checkpoint's own stored `test_acc` / `macro_auc`, so it re-derives the v2 values
+rather than the paper's.
 
 ### The test set this file reports on
 
@@ -1012,3 +1024,29 @@ archives share filenames (`history.csv`, `timing.json`, `confusion_test.csv`,
 `per_class_test.csv`, `__huggingface_repos__.json`), so **keep each notebook's output
 in its own folder** or they will overwrite each other. This is exactly what stopped
 cell 17 (§1c.9): the ConvNeXt run could not see the other two checkpoints.
+
+### The layout NB1 expects
+
+Cell 4 resolves per-notebook subfolders first, so this works and keeps the colliding
+filenames apart:
+
+```
+CKPT_ROOT/
+  efficientnet/efficientnet_b1_5cls_skin_v2.pth   from results.zip
+  convnext/convnext_tiny_5cls_skin_v2.pth         from NB4's output
+  swin/swin_tiny_5cls_skin_v2.pth                 from results (1).zip
+```
+
+A flat layout with all three `*_v2.pth` side by side also resolves; the subfolders
+only matter if the other nine files per archive come too. Both were checked against
+the patched resolver, along with three layouts that must not pass silently: v2 plus a
+stale original present (v2 wins), one backbone still original (refused as mixed), and
+originals only (resolves, and prints `generation: ORIGINAL` so it is visible).
+
+**`CLEAN_MANIFEST` is a second upload, separate from the checkpoints.** NB1 defaults
+to `/kaggle/input/datasets/jainmanav20/skinsure-dedup/test_clean_manifest.csv` and
+raises `FileNotFoundError` if it is absent — it will not quietly fall back to the
+contaminated 727. NB2 wrote that file to `/kaggle/working`; it has to be uploaded as
+its own dataset. Setting `CLEAN_MANIFEST = None` deliberately reports the
+contaminated numbers and prints a warning, which is useful only as a cross-check
+against §1/§1b, never as a result.
