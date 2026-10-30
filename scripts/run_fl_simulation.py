@@ -86,7 +86,7 @@ def _make_client_data(data_dir: Path, shard_csv: Path) -> tuple[str, str]:
 
 
 def client_fn(cid: str) -> fl.client.NumPyClient:
-    """Factory for flower's start_simulation — creates one hospital client."""
+    """Factory for flower's start_simulation - creates one hospital client."""
     from src.federated.client import SkinSureClient
 
     cfg = _SIM_CONFIG

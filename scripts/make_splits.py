@@ -18,8 +18,8 @@ pass --presplit and the script expects:
     <data-dir>/test/<class>/...
 
 Outputs:
-    data/splits/global_test.csv     — ~15% stratified holdout (never used for training)
-    data/splits/trainable_pool.csv  — remaining ~85% (used for centralized or federated training)
+    data/splits/global_test.csv     - ~15% stratified holdout (never used for training)
+    data/splits/trainable_pool.csv  - remaining ~85% (used for centralized or federated training)
 
 Each CSV has columns: path, label
 """
@@ -149,8 +149,8 @@ def main() -> None:
     write_csv(pool_path, pool)
     write_csv(test_path, test)
 
-    print(f"\nTrainable pool: {len(pool):>5} → {pool_path}")
-    print(f"Global test:    {len(test):>5} → {test_path}")
+    print(f"\nTrainable pool: {len(pool):>5} -> {pool_path}")
+    print(f"Global test:    {len(test):>5} -> {test_path}")
 
     print("\nPer-class breakdown:")
     print(f"  {'Class':<25} {'Pool':>6} {'Test':>6}")

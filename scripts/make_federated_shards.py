@@ -9,8 +9,8 @@ Outputs shard manifests to data/splits/shards/:
 Each CSV has columns: path, label
 
 Strategies:
-    iid    — random stratified split, same class balance in each shard
-    noniid — skewed by hospital specialization:
+    iid    - random stratified split, same class balance in each shard
+    noniid - skewed by hospital specialization:
              Hospital A: heavy Melanoma + BCC (urban dermatology center)
              Hospital B: heavy Tinea + Eczema (tropical clinic)
              Hospital C: mixed (multi-specialty hospital)
@@ -32,7 +32,7 @@ MIN_PER_CLASS = 200
 
 HOSPITAL_PROFILES = {
     "hospital_a": {
-        "description": "Large urban dermatology center — heavy Melanoma + BCC",
+        "description": "Large urban dermatology center - heavy Melanoma + BCC",
         "weights": {
             "Melanoma": 0.50,
             "Basal_Cell_Carcinoma": 0.45,
@@ -42,7 +42,7 @@ HOSPITAL_PROFILES = {
         },
     },
     "hospital_b": {
-        "description": "Tropical area clinic — heavy Tinea + Eczema",
+        "description": "Tropical area clinic - heavy Tinea + Eczema",
         "weights": {
             "Melanoma": 0.25,
             "Basal_Cell_Carcinoma": 0.25,
@@ -52,7 +52,7 @@ HOSPITAL_PROFILES = {
         },
     },
     "hospital_c": {
-        "description": "Multi-specialty hospital — mixed distribution",
+        "description": "Multi-specialty hospital - mixed distribution",
         "weights": {
             "Melanoma": 0.25,
             "Basal_Cell_Carcinoma": 0.30,
@@ -173,9 +173,9 @@ def main() -> None:
         print(f"  Total: {len(shard)}")
         for cls in all_classes:
             n = sum(1 for _, l in shard if l == cls)
-            flag = " ⚠ BELOW MIN" if n < MIN_PER_CLASS else ""
+            flag = " (!) BELOW MIN" if n < MIN_PER_CLASS else ""
             print(f"    {cls:<25} {n:>5}{flag}")
-        print(f"  → {out_path}\n")
+        print(f"  -> {out_path}\n")
 
 
 if __name__ == "__main__":
