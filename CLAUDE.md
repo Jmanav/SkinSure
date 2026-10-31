@@ -25,7 +25,7 @@ If a doc disagrees with this file or with `fedler.md`, fix the doc. When code ch
 
 ## Current Implementation State
 
-Last audited 2026-10-27 against the files on disk.
+Last audited 2026-10-31 against the files on disk.
 
 **Implemented:**
 - Schemas — `api/schemas/patient.py` (`PatientMetadata`, Fitzpatrick IV–VI gate) and `api/schemas/predictions.py` (`Predictions`, `XAISummary`, `Severity`, `ConfidenceLevel`, `ClinicalSummary`; validator enforces `urgent → immediate_referral`)
@@ -37,12 +37,13 @@ Last audited 2026-10-27 against the files on disk.
 - Orchestrator and API — `src/agents/orchestrator.py` (`run_screening(image, patient, *, ensemble, explainer, client) -> ScreeningResult`: quality gate → ensemble → explainer → summarizer → triage; statuses `completed` / `rejected` / `blocked`; `treatment_advice_allowed` is False for urgent, referral and re-capture cases) and `api/main.py` (`create_app(ensemble, explainer, client)`; `GET /health`, `POST /predict` taking a multipart `image` + `metadata` JSON string). The explainer is injected; when the ensemble is a real `SkinEnsemble` and none is passed, `create_app` defaults to `GradCamExplainer`. With no explainer available `/predict` returns 503 rather than invent explainability data.
 - Explainability — `src/explainability/`: `gradcam.py` (`grad_cam`, `ensemble_heatmap`; per-backbone target layers `bn2` / `stages[-1]` / `layers[-1]`, Swin is NHWC), `xai_summary.py` (`summarize_heatmap` heatmap → `XAISummary`, `estimate_lesion_mask`), `explainer.py` (`GradCamExplainer`, the app's default), `evaluation.py` (deletion curve / AOPC for any heatmap); `scripts/evaluate_xai.py` compares Grad-CAM with external heatmaps (e.g. SHAP `.npy`) and a random baseline under one procedure
 - Config — `src/utils/config.py` (`get_settings()` for `configs/agents.yaml`; `get_model_config()` / `get_checkpoint_paths()` for `configs/models.yaml`; `get_preprocessing_config()` for `configs/preprocessing.yaml`), `configs/agents.yaml`, `configs/models.yaml` (checkpoint paths and ensemble weights)
+- Cost accounting and spend gate — `src/utils/costs.py` (`cost_usd()` prices one response's `usage` from the table in `configs/llm.yaml`; Haiku 5.5 is tiered by prompt length, so a prompt over `long_prompt_threshold_tokens` prices 5× on every category, and cache reads/writes count toward that length) and `scripts/_guard.py` (`SpendGuard`: a script that calls a paid API refuses to run without both `SKINSURE_ALLOW_SPEND=1` and an explicit `--max-usd`; neither has a money-spending default)
 - Packaging — `pyproject.toml`, `.env.example`, `.gitignore`
 - **Federated learning (Phases 0–2)** — `src/training/train_utils.py` (reusable training loop: `train_one_epoch`, `evaluate`, `create_model`, transforms, dataloaders, loss weighting), `src/federated/client.py` (`SkinSureClient` NumPyClient + `ClientApp`), `src/federated/server.py` (`weighted_average` aggregation + `ServerApp`), `scripts/run_fl_simulation.py` (FL simulation via `start_simulation()` with `FedAvgWithCheckpoint`), `scripts/train_baseline.py` (centralized baseline trainer), `scripts/make_federated_shards.py` (IID/non-IID shard generation). Data splits in `data/splits/` (`global_test.csv`, `trainable_pool.csv`, `shards/iid/`, `shards/noniid/`). Dataset: 6,655 images, 5 classes. **Both measured on the same 997-image global test set:** centralized baseline 83.15% acc / 98.32% melanoma sens / 0.9162 composite; FL (FedAvg, 10 rounds, non-IID) 79.94% acc / 97.06% melanoma sens / 0.8999 composite — privacy costs ~3.2 points of accuracy, concentrated in Keratosis (-13.4), while melanoma sensitivity holds within 1.3 points. See `fedler.md` for full per-class results.
 
 **Known gaps:**
-1. `tests/unit/` covers schemas, severity triage (every override branch), the clinical summarizer (fake client), the orchestrator, preprocessing and explainability (toy models and synthetic scenes); `tests/integration/` covers `/predict` and `/health` with fakes, plus one real-checkpoint run (skipped when checkpoints are absent). 179 tests pass. No `tests/fairness/` yet. Nothing in the suite touches the real LLM, a real lesion photo, or real-data accuracy.
-2. `summarize_one.py` has not been run against the real Anthropic API. It is now gated by `scripts/_guard.py`: it refuses to run without `SKINSURE_ALLOW_SPEND=1` and an explicit `--max-usd` cap, and reports what the call cost.
+1. `tests/unit/` covers schemas, severity triage (every override branch), the clinical summarizer (fake client), the orchestrator, preprocessing and explainability (toy models and synthetic scenes); `tests/integration/` covers `/predict` and `/health` with fakes, plus one real-checkpoint run (skipped when checkpoints are absent). 239 tests pass (run with `./venv/Scripts/python.exe -m pytest tests/`; the system Python lacks torch/cv2/anthropic/fastapi). No `tests/fairness/` yet. Nothing in the suite touches the real LLM, a real lesion photo, or real-data accuracy. `FakeClient` accepts `**kwargs` and ignores them, so it cannot catch a request parameter the real API would reject — `test_request_carries_system_prompt_and_context` asserts on the request shape (no `temperature`, `output_config` present) to cover that blind spot.
+2. ~~`summarize_one.py` has not been run against the real Anthropic API.~~ **Done 2026-10-31**: all three `--case` values ran against Claude Haiku 5.5 and returned valid, parseable JSON. Confirmed live: `output_config={"effort": "low"}` is accepted; `max_tokens: 1000` is enough for thinking plus the JSON body (~500 output tokens in practice); the disagreement caveat and the artifact `recapture_needed` force both fire; and on melanoma at 0.91 the LLM returned `urgent` **with** `immediate_referral: true` unprompted, so the schema validator never had to reject a response. Cost ~$0.0005 per call. It stays gated by `scripts/_guard.py` (`SKINSURE_ALLOW_SPEND=1` **and** `--max-usd`, neither defaulted). Two residual unknowns: the artifact case's final `confidence_level: low` is ambiguous because `_TIER_DOWN` maps both `moderate→low` and `low→low`, so the live run proves the branch executed (`recapture_needed` was forced) but not the size of the downgrade — the parametrized unit test covers all three tiers instead; and nothing has yet been run against a real lesion photo (see gap 5).
 3. Hair and artifact removal are untuned: on 100 unmodified Basal_Cell_Carcinoma images they fired on 33% (hair) and 47% (artifacts); on a test image with dark corners the hair mask covered 57% and the step skipped itself. Both stay off until tuned and compared on a held-out set (only BCC was measured; the run did not finish for other classes).
 4. Preprocessing is unit-tested on synthetic images only (gate boundaries, guards, step order, defaults off). Those tests pin behaviour; they say nothing about tuning on real images (see gap 3).
 5. `predict_one.py` and the Grad-CAM explainer were run on a synthetic image only (a scratch file, since deleted): checkpoints load, all three backbones produce valid maps (about 2.3 s per ensemble explanation on the dev CPU, one run). Not yet checked on a real lesion photo.
@@ -69,18 +70,20 @@ Last audited 2026-10-27 against the files on disk.
 
 `pyproject.toml` exists (install with `pip install -e .[dev]`), and `tests/unit/` + `tests/integration/` run today. Commands (some not available yet):
 
+**Use the project venv, not the system Python** — `torch`, `cv2`, `anthropic` and `fastapi` are installed only in `venv/`, so the system interpreter fails at collection with `ModuleNotFoundError`. On Windows the interpreter is `./venv/Scripts/python.exe`.
+
 ```bash
 # Run all tests
-pytest tests/
+./venv/Scripts/python.exe -m pytest tests/
 
 # Run a single test file
-pytest tests/unit/test_clinical_summarizer.py
+./venv/Scripts/python.exe -m pytest tests/unit/test_clinical_summarizer.py
 
 # Run with fairness audit
-pytest tests/fairness/test_skin_tone_bias.py
+./venv/Scripts/python.exe -m pytest tests/fairness/test_skin_tone_bias.py
 
 # Start API dev server (loads the real checkpoints at startup)
-uvicorn api.main:app --reload
+./venv/Scripts/python.exe -m uvicorn api.main:app --reload
 
 # Training (src/training/, once created)
 python -m src.training.train --config src/training/configs/ensemble.yaml
@@ -90,9 +93,13 @@ python -m src.training.evaluate --fairness-audit
 Works today:
 
 ```bash
-python scripts/predict_one.py <image>     # ensemble prediction
-SKINSURE_ALLOW_SPEND=1 python scripts/summarize_one.py --max-usd 0.05   # real API; both flags required
-python scripts/evaluate_xai.py <image_dir> [--heatmap-dir DIR]   # deletion/AOPC: Grad-CAM vs external heatmaps vs random
+./venv/Scripts/python.exe scripts/predict_one.py <image>     # ensemble prediction
+# Real API; both the env var and the cap are required, and --case picks which
+# post-processing rule to exercise (disagreement / artifact / urgent).
+# summarize_one.py calls load_dotenv(override=True), so .env wins over any
+# ANTHROPIC_API_KEY already exported in the shell.
+SKINSURE_ALLOW_SPEND=1 ./venv/Scripts/python.exe scripts/summarize_one.py --case disagreement --max-usd 0.05
+./venv/Scripts/python.exe scripts/evaluate_xai.py <image_dir> [--heatmap-dir DIR]   # deletion/AOPC: Grad-CAM vs external heatmaps vs random
 ```
 
 ---
@@ -113,7 +120,7 @@ python scripts/evaluate_xai.py <image_dir> [--heatmap-dir DIR]   # deletion/AOPC
 
 ### Clinical summarizer (`src/agents/clinical_summarizer.py`)
 
-Two-phase design — `build_context()` is pure Python (no LLM, and it deliberately omits `patient_name`), `summarize()` is async and calls the Anthropic API (model, `max_tokens`, `temperature` come from `configs/agents.yaml`; the client is injectable for tests). Post-processing in `summarize()` runs after the LLM response:
+Two-phase design — `build_context()` is pure Python (no LLM, and it deliberately omits `patient_name`), `summarize()` is async and calls the Anthropic API (model, `max_tokens` and `effort` come from `configs/agents.yaml`; the client is injectable for tests). **No `temperature`:** sampling params are rejected on Haiku 5.5 and are a 400 on every model from API version `2026-10-21`, so `output_config={"effort": ...}` is the depth/cost control instead. Thinking is on by default on this model, so `max_tokens` has to cover thinking plus the JSON body — too low a value truncates the response and fails parsing. Post-processing in `summarize()` runs after the LLM response:
 1. If `xai_summary.artifact_flag`: downgrade `confidence_level` one tier via `_TIER_DOWN` and force `recapture_needed = True`.
 2. If `confidence_tier() == "low"` and no caveat already mentions "model disagreement": append the standard caveat string.
 
@@ -126,7 +133,7 @@ The LLM is instructed to return **JSON only** — no markdown, no preamble. Pars
 ### Design invariants
 
 - **LLM interprets; Python decides.** The LLM proposes severity; deterministic rules in `severity_triage.py` override it. Never let the LLM have the final word on urgent/non-urgent.
-- **Context builder is deterministic; summarizer is not.** All clinical reasoning lives inside the LLM with a constrained system prompt. `build_context()` only formats — no interpretation.
+- **Context builder is deterministic; summarizer is not.** All clinical reasoning lives inside the LLM with a constrained system prompt. `build_context()` only formats — no interpretation. **Spell out counts the LLM would otherwise guess:** given a bare `agreement_score` of `0.33` it stated "the two models agree" (wrong in both live runs that exposed it), so the line now reads `"1 of 3 models agree with the primary label (score 0.33, low tier)"`. A derived figure in the context needs its denominator, not just its value.
 - **Fairness is a first-class CI check.** Per-Fitzpatrick-subtype accuracy must be tested on every model update.
 - **Uploaded images are never used for training.** They are kept only for the patient's own history (`GET /history`).
 - **Secrets never touch git or images.** `.env` locally (gitignored), a secret manager in the cloud.

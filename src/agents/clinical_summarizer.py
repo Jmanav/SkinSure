@@ -72,7 +72,11 @@ def build_context(
         "MODEL PREDICTION\n"
         f"- Primary: {predictions.primary_label.value} ({predictions.primary_confidence:.1%})\n"
         f"- Secondary: {predictions.secondary_label.value} ({predictions.secondary_confidence:.1%})\n"
-        f"- Model agreement: {predictions.agreement_score:.2f} ({predictions.confidence_tier()})\n"
+        # State the count, not just the fraction: given a bare "0.33" the LLM inferred the
+        # wrong number of models ("the two models agree at only 0.33") in live runs of both
+        # the disagreement and artifact cases.
+        f"- Model agreement: {round(predictions.agreement_score * 3)} of 3 models agree with the "
+        f"primary label (score {predictions.agreement_score:.2f}, {predictions.confidence_tier()} tier)\n"
         "\n"
         "EXPLAINABILITY (Grad-CAM)\n"
         f"- Focus: {xai_summary.focus_description.value}\n"

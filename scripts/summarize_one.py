@@ -67,7 +67,10 @@ async def main() -> None:
     args = parse_args()
     guard = SpendGuard.from_args(args)  # refuses unless authorised and capped
 
-    load_dotenv()  # puts ANTHROPIC_API_KEY from .env into the environment
+    # override=True: the project's .env wins over whatever the shell already exports.
+    # Without it, a stale ANTHROPIC_API_KEY in the environment silently shadows .env
+    # and the run dies on a 401 that looks like a bad key in the file.
+    load_dotenv(override=True)
 
     # Each case isolates one behaviour that the fake-client tests pin but cannot prove
     # against a real model: the caveat append, the artifact downgrade, and whether the
