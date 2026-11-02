@@ -1,7 +1,12 @@
+# v2 = the retrains evaluated in paper/experiments/01_eval_and_ablation.ipynb.
+# ConvNeXt is the reason to switch: 71.35% -> 89.13% test accuracy (freeze_epochs
+# 8->3, patience 5->10, num_epochs 30->40, seed unchanged). EfficientNet and Swin
+# are near-flat (85.11->84.73 and 85.39->85.97). The v1 files are kept beside
+# these as a fallback; do not mix generations across backbones.
 checkpoints:
-  efficientnet: models/checkpoints/efficientNet/efficientnet_b1_5cls_skin.pth
-  convnext: models/checkpoints/convNext/convnext_tiny_5cls_skin.pth
-  swin: models/checkpoints/swin/swin_tiny_5cls_skin.pth
+  efficientnet: models/checkpoints/efficientNet/efficientnet_b1_5cls_skin_v2.pth
+  convnext: models/checkpoints/convNext/convnext_tiny_5cls_skin_v2.pth
+  swin: models/checkpoints/swin/swin_tiny_5cls_skin_v2.pth
 
 weights:
   efficientnet: 1.0

@@ -22,8 +22,12 @@ training notebooks. All outputs go to `/kaggle/working/`.
    with `strict=True`.
 2. **A reproduction gate.** Notebook 1 refuses to continue unless the reproduced
    single-backbone test accuracy and macro-AUC match the values stored in the
-   checkpoints to within 0.01 pp (EfficientNet 85.11 / 0.9636, ConvNeXt 71.35 /
-   0.9418, Swin 85.39 / 0.9683).
+   checkpoints to within 0.01 pp. For the **v2** checkpoints the app now loads,
+   that means EfficientNet 84.73 / 0.9704, ConvNeXt 89.13 / 0.9684, Swin 85.97 /
+   0.9737 — the values `.nb1out/reproduction_check.csv` records, all three
+   `within_tol=True` at delta 0.0. (The v1 gate was EfficientNet 85.11 / 0.9636,
+   ConvNeXt 71.35 / 0.9418, Swin 85.39 / 0.9683; checking v2 output against those
+   numbers will look like a failure when it is not.)
 3. **Every result is printed *and* written to a file.** No number exists only inside
    a plot.
 4. **Five classes only**, in the order stored in the checkpoints:
@@ -54,8 +58,11 @@ Only the five paper classes are present in the uploaded dataset; the Acne,
 Lichen_Planus, Psoriasis and Vitiligo folders that exist in the local corpus were
 not uploaded, so the notebooks' class filtering is a no-op here.
 
-Upload the checkpoints from `models/checkpoints/*/`. Use the **`*_5cls_skin.pth`**
-files, not `best_*.pth`: the `best_*` files are bare `state_dict`s with no `config`,
+Upload the checkpoints from `models/checkpoints/*/`. Use the **`*_5cls_skin_v2.pth`**
+files — the retrains, and what `configs/models.yaml` loads. Do not upload the v1
+`*_5cls_skin.pth` files: NB1 falls back to them when a v2 upload is missing, and a
+mixed-generation ensemble is meaningless. Either way, not `best_*.pth`: those are
+bare `state_dict`s with no `config`,
 `classes` or metrics, so the reproduction gate cannot run against them.
 
 **Accelerator:** GPU T4 x1 for Notebooks 1, 4, 5 and 6; Notebooks 2 and 3 are

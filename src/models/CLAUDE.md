@@ -99,7 +99,8 @@ history = {
 Load helpers use `ckpt.get('best_melanoma_sens', float('nan'))` so older checkpoints
 without this key still load cleanly.
 
-**Caveat on the three shipped checkpoints.** They do not honour the `best_val_acc`
+**Caveat on the three original (v1) checkpoints** — `*_5cls_skin.pth`, kept only as a
+fallback now that `configs/models.yaml` loads the v2 retrains. They do not honour the `best_val_acc`
 comment above: the original notebooks end with `best_val_acc = max(history['val_acc'])`,
 the maximum over *all* epochs, which is generally a different epoch from the one whose
 weights were saved. ConvNeXt is the clearest case — composite selected epoch 4 while
@@ -110,8 +111,9 @@ The retrain checkpoints (`*_v2.pth`, from `paper/experiments/05`, `06`, `04`) ad
 `saved_epoch` key, a `metrics_at_saved_epoch` dict and a `provenance` dict, and store
 `best_val_acc` as the saved epoch's own value. They also pass a save-then-verify gate:
 reload with `strict=True`, `torch.equal` on all 512 tensors, and re-score to confirm
-the stored `test_acc` reproduces to < 1e-9. The shipped checkpoints fail that gate —
-which is why the retrains exist (`paper/REVISION_NOTES.md` §0).
+the stored `test_acc` reproduces to < 1e-9. The v1 checkpoints fail that gate — which
+is why the retrains exist (`paper/REVISION_NOTES.md` §0) and why **v2 is what the app
+loads**. Note that "shipped" in older notes means v1; since 2026-11-02 it means v2.
 
 ## Clinical sensitivity targets
 
