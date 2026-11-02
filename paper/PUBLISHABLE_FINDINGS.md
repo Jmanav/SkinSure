@@ -16,10 +16,39 @@ comparable with each other:
 
 ---
 
-## F1 — The shipped 3-model ensemble has the worst melanoma sensitivity of any configuration tested
+## F1 — The ensemble configuration cannot be resolved on melanoma sensitivity at this sample size; keep equal weights
 
-**Status: PROVISIONAL — significance not yet tested. Do not publish as stated.**
-**Logged 2026-11-02. Basis: clean 565. Source: `.nb1out/per_class_metrics.csv`, `.nb1out/ablation_table.csv` (NB1, `paper/experiments/01_eval_and_ablation.ipynb`).**
+**Status: CONFIRMED (as a null result, which is the finding). Tested 2026-11-02.**
+**Basis: clean 565 + contaminated 727 + validation 748. Source: `.nb1out/ensemble_weighting_analysis.md` and the `weighting_*.csv` files.**
+
+> **Resolved.** The provisional claim below — that the shipped ECS ensemble is
+> meaningfully worse on melanoma sensitivity — **did not survive testing.** The
+> difference is 2 discordant images (McNemar exact p = 0.50), all seven configs'
+> Wilson intervals mutually overlap, and the sample cannot resolve an effect this
+> small: pooling test + validation to 326 melanoma cases gives 5 unanimously
+> ES-favouring discordances, and 5 one-sided pairs cannot produce p < 0.0625 no
+> matter how consistent they are. α=0.05 would need ≥6.
+>
+> Meanwhile the better-powered statistics favour ECS: it wins macro AUC on both
+> bases (0.98132 vs 0.97722 test), and switching to ES costs ~2 pp accuracy
+> *significantly* (test p = 0.043, val p = 0.020) and is worse on four of five
+> validation classes including BCC (−3.36 pp). **Paying a measured cost for an
+> unmeasured benefit is the wrong trade. Keep equal weights.**
+>
+> Honest residual risk: the ~1.5 pp effect may be real and one-sided across all
+> three bases, i.e. ECS may miss roughly 1 melanoma in 65 that ES catches.
+> Settling it needs ~1,500–2,000 melanoma images for 80% power at 1.5 pp; we have
+> 124, or 326 pooled. If weights are ever tuned, tune on validation and report on
+> test — never the test-set grid search, which is optimistically biased by
+> construction (28.3% of 1,033 weight vectors hit the same best melanoma count,
+> so the choice is mostly noise).
+>
+> **Publishable as a null result with a power analysis** — a useful corrective to
+> ablation tables that rank configurations on fractions of a percent without
+> testing whether the ranking is distinguishable. See also F4, the concrete
+> safety gap found while testing this.
+
+### The original provisional claim, for the record
 
 The deployed configuration is an equal-weight (1.0/1.0/1.0) mean of three
 backbones — EfficientNet-B1, ConvNeXt-Tiny, Swin-Tiny — set in
@@ -67,6 +96,49 @@ backbone (88.67% clean, 89.13% on 727), reversing the v1 finding where it was
 the weakest at 71.35%. That reversal is attributable to a training-schedule fix
 (`freeze_epochs` 8→3, `patience` 5→10, `num_epochs` 30→40, seed unchanged), not
 to architecture — see `paper/new_results.md`.
+
+---
+
+## F4 — The melanoma escalation rule is structurally unreachable for every melanoma the ensemble misses
+
+**Status: CONFIRMED (verified directly against the code and the misclassified cases).**
+**Logged 2026-11-02. Basis: clean 565. Source: `.nb1out/weighting_melanoma_misses.csv`, `src/agents/severity_triage.py`.**
+
+`severity_triage.py` Rule 2 escalates to `urgent` when
+`predictions.primary_label == MELANOMA_LABEL and primary_confidence >= 0.40`.
+It keys on **`primary_label`** — the argmax. A melanoma that ranks *second* can
+therefore never reach the rule, whatever the threshold is set to.
+
+All three melanomas the shipped ensemble misses are exactly that shape:
+
+| Image | ECS prediction | p(melanoma) |
+|---|---|---|
+| ISIC_6966105 | Basal_Cell_Carcinoma | 0.343 |
+| ISIC_7619041 | Keratosis | 0.369 |
+| ISIC_7406359 | Keratosis | 0.064 |
+
+Two of the three carry p(melanoma) ≈ 0.34–0.37 — ranked high, not top. Lowering
+`MELANOMA_URGENT_MIN_CONFIDENCE` from 0.40 would **not** catch them, because the
+rule never fires: the gate is the argmax, not the threshold. This is a
+structural gap, not a tuning problem, and it is invisible to any accuracy or
+sensitivity metric computed on argmax predictions.
+
+**The cheap fix, measured:** escalating on `p(melanoma) ≥ 0.30` *wherever
+melanoma ranks* lifts ECS from 121/124 to 123/124 (97.58% → 99.19%) — exactly
+matching the best configuration tested — at a cost of **one** extra flag on a
+non-melanoma image across 441 (3 → 4), with no accuracy and no BCC loss. That
+is the same sensitivity the ensemble-weighting change appeared to offer, with no
+accuracy trade and no change to the model.
+
+**Not implemented** — this is a triage-rule proposal awaiting review, since it
+changes clinical escalation behaviour. The 0.30 threshold is itself fitted to
+these three cases and should be chosen on validation before shipping.
+
+**Why it is publishable:** a safety rule keyed on argmax is a plausible and
+easily-missed failure mode for any multi-class clinical classifier with a
+privileged dangerous class. The metric that should have caught it — melanoma
+sensitivity — cannot, because it is computed on the same argmax the rule gates
+on.
 
 ---
 

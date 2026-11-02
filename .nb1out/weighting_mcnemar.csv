@@ -1,0 +1,6 @@
+comparison,subset,n,b,c,both_correct,neither_correct,chi2_cc,p_chi2_cc,chi2_uncorrected,p_chi2_uncorrected,p_exact_binomial
+ECS_vs_ES,Melanoma cases only,124,0,2,121,1,0.5,0.4795001221869534,2.0,0.1572992070502851,0.5
+ECS_vs_ES,All 565 images (overall accuracy),565,18,7,478,62,4.0,0.045500263896358396,4.84,0.02780689502699722,0.043285250663757324
+ECS_vs_CS,"Melanoma only, ECS vs CS",124,0,1,121,2,0.0,1.0,1.0,0.31731050786291404,1.0
+ECS_vs_C,"Melanoma only, ECS vs C",124,0,0,121,3,0.0,1.0,0.0,1.0,1.0
+ES_vs_CS,"Melanoma only, ES vs CS",124,1,0,122,1,0.0,1.0,1.0,0.31731050786291404,1.0

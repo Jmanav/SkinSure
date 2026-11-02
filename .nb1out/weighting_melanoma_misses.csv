@@ -1,0 +1,4 @@
+image,ecs_pred,ecs_p_mel,es_pred,es_p_mel,eff_p_mel,conv_p_mel,swin_p_mel
+ISIC_6966105.jpg,Basal_Cell_Carcinoma,0.34265462,Melanoma,0.49219015,0.4396624,0.043583605,0.5447179
+ISIC_7406359.jpg,Keratosis,0.06447246,Keratosis,0.0843236,0.045765556,0.024770178,0.122881636
+ISIC_7619041.jpg,Keratosis,0.3689616,Melanoma,0.51111865,0.1687574,0.08464761,0.85347986
