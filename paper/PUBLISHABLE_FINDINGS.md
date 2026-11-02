@@ -191,7 +191,78 @@ are genuine inpainting effects rather than noise. Stratifying by whether a
 conditional preprocessing step actually fired is essential — a whole-set delta
 dilutes a −4.88 pp effect to −0.35 pp and would have been dismissed as noise.
 
-**Open:** artifact removal (reported 47% firing) has had no equivalent test.
+**Now closed:** artifact removal has had the equivalent test — see **F6**, which is the contrasting case and makes F5's mechanism argument much stronger.
+
+---
+
+## F6 — The harm in F5 is specific to a mistuned step, not inherent to inference-time preprocessing: a well-behaved step on the same models is inert
+
+**Status: CONFIRMED (full paired A/B over the clean 565 set, same harness and statistics as F5).**
+**Logged 2026-11-03. Source: `.nb1out/artifact_ab_raw.csv`, `.nb1out/artifact_ab_analysis.md`, `scripts/artifact_ab_experiment.py`, `scripts/artifact_ab_analyze.py`.**
+
+F5 alone supports a sweeping reading — "don't put preprocessing in front of a
+model trained without it." Artifact removal (pen-ink / glare / ruler inpainting)
+is the control that narrows the claim, and **it is the more useful result
+because it is a near-exact methodological match that comes out the other way.**
+It ran on the same 565 images, the same v2 ensemble, the same guard
+(`MAX_MASK_FRACTION = 0.10`) and the same statistics, and it **fired more than
+eight times as often as hair removal (59.3% vs 7.26%) yet changed exactly one
+label — a fix, not a break.**
+
+| Metric | Baseline | Artifact removal | Δ |
+|---|---|---|---|
+| Accuracy | 87.61% (495/565) | 87.79% (496/565) | **+0.18 pp** |
+| Macro AUC | 0.9813 | 0.9813 | −0.0001 |
+| **Melanoma sens** | 97.58% (121/124) | 97.58% (121/124) | **0.00 (bit-identical)** |
+| **BCC sens** | 100% (106/106) | 100% (106/106) | **0.00 (bit-identical)** |
+
+McNemar overall: b=0, c=1, exact p=1.0000. Per-class McNemar on both
+safety-critical classes: b=0, c=0. The single flip is `v-tinea-face-4` (true
+Tinea), Keratosis 0.4655 → Tinea 0.4882 after inpainting 0.4% of pixels — a
+genuine correction, but on a coin-flip margin.
+
+**The mechanism is again the publishable part, and it is the contrast that
+carries the argument.** The two steps differ precisely where F5 said they would:
+
+| | Hair removal (F5) | Artifact removal (F6) |
+|---|---|---|
+| Firing rate | 7.26% | **59.3%** |
+| Median mask on fired images | 6.9% of frame | **0.31% of frame** |
+| Fired masks as share of the 10% guard | just under it | **median 0.03×** |
+| Mask on *declined* images | median 58.9%, ≥75% on 185 | median **0.00%**, 206 empty |
+| Role of the guard | the only thing preventing damage | real but not load-bearing (stops 24 images, 4.25%) |
+| Class concentration | BCC 24.5% — the malignancy | guard trips: Eczema 9.9%, Tinea 7.7%, **BCC 0/106** |
+| Net effect | 0 fixed, 2 malignancies broken | 1 fixed, 0 broken |
+
+So the discriminating variable is **mask precision, not the presence of
+preprocessing.** Hair removal's detector was non-selective — it wanted to
+inpaint most of most images and was restrained only by a blunt area cap, so what
+slipped through sat just under the cap and was therefore large and
+lesion-covering. Artifact removal's detectors are sparse and targeted: glare
+dominates (252 of 335 fired masks, then ink 57, ruler 26), the masks are two
+orders of magnitude smaller relative to the guard, and 206 images correctly get
+no mask at all. **A step that fires 8× more often but touches 20× fewer pixels
+per firing is harmless; a step that fires rarely but coarsely is dangerous.**
+Critically, artifact removal never trips the guard on BCC (0/106), so it does
+not have F5's property of preferentially damaging the class it fires on.
+
+**What this licenses in the paper.** The claim becomes: *inference-time
+preprocessing that a model was not trained with is safe only to the extent its
+masks are precise; area-capping a non-selective detector is not a safety
+mechanism, because the cap selects for exactly the large, lesion-covering masks
+that do harm.* That is a sharper and better-supported statement than F5 alone
+allows, and it needs both experiments.
+
+**Both steps nevertheless stay OFF.** F6 is inert, not beneficial: a single
+discordant pair on a 0.47-margin image cannot justify adding a pixel-mutating
+step to the live inference path. The honest summary is "measured, harmless, and
+pointless," which is a reason not to ship it.
+
+**Methodological note:** the determinism control held here too — 230 declined
+images, maximum probability shift 0.00000000 across all classes, zero flips, so
+the one observed flip is a real inpainting effect. The earlier "47% of 100 BCC
+images" sampling figure is **superseded**: the true BCC firing rate on the full
+clean set is 43.4%, and whole-set firing is 59.3%.
 
 ---
 
