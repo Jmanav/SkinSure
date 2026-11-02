@@ -142,6 +142,59 @@ on.
 
 ---
 
+## F5 — A standard dermoscopy preprocessing step (DullRazor hair removal) measurably harms a model trained without it, and damages the class it fires on
+
+**Status: CONFIRMED (full paired A/B over the clean 565 set).**
+**Logged 2026-11-02. Source: `.nb1out/hair_ab_raw.csv`, `scripts/hair_ab_experiment.py`, `scripts/hair_ab_analyze.py`.**
+
+DullRazor-style black-hat hair removal is routine in dermoscopy pipelines. Run
+as an inference-time step in front of models trained on resize + ImageNet
+normalisation only, it **never corrected a single image out of 565 and broke
+two** — both true Basal Cell Carcinoma, i.e. two new false negatives on a
+malignancy:
+
+| Image | A → B | BCC confidence |
+|---|---|---|
+| ISIC_0054063 | BCC → **Keratosis** (benign) | 0.9314 → 0.3366 |
+| ISIC_0073116 | BCC → Melanoma | 0.6303 → 0.3881 |
+
+The first is the worst outcome available: a confident malignant call turned
+benign.
+
+| Metric | Baseline | Hair removal | Δ |
+|---|---|---|---|
+| Accuracy | 87.61% | 87.26% | −0.35 pp |
+| Macro AUC | 0.9813 | 0.9802 | −0.0011 |
+| **Melanoma sens** | 97.58% | 97.58% | **0.00** |
+| **BCC sens** | 100% | 98.11% | **−1.89 pp** |
+
+On the 41 images where the step fired: accuracy −4.88 pp, BCC sensitivity
+−7.69 pp. McNemar b=2, c=0, exact p=0.50 — not significant on two discordant
+pairs, but the sign is unanimous: nothing was ever fixed.
+
+**The mechanism is the publishable part.** The step is not merely unhelpful, it
+is mistuned in a way that selectively damages malignancy. At `threshold=10` the
+black-hat filter is non-selective on this dataset: across the 524 images it
+declined, the mask covered a **median 58.9%** of the frame and ≥75% on 185 of
+them. A `MAX_MASK_FRACTION` guard at 10% is the only thing preventing wholesale
+inpainting over lesions, and the 7.26% that slip under it inpainted a median
+6.9% of pixels — sitting just below the cutoff rather than being precise hair
+masks. Firing therefore concentrates on BCC (24.5% vs 1.5–5.7% for other
+classes), because BCC lesions are dark and textured and respond to black-hat
+much as hair does. **The step preferentially fires on, and damages, the class it
+is most dangerous to damage.**
+
+**Methodological note worth reporting alongside it:** a control check on the 524
+declined images found zero metric change and a maximum probability shift of
+0.00000, confirming the scoring path is deterministic and that both label flips
+are genuine inpainting effects rather than noise. Stratifying by whether a
+conditional preprocessing step actually fired is essential — a whole-set delta
+dilutes a −4.88 pp effect to −0.35 pp and would have been dismissed as noise.
+
+**Open:** artifact removal (reported 47% firing) has had no equivalent test.
+
+---
+
 ## F2 — pHash de-duplication removes 22.3% of the test set; measured inflation is small
 
 **Status: CONFIRMED (descriptive — a measured count, not an inferential claim).**
