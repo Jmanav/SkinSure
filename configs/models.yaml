@@ -1,8 +1,11 @@
 # v2 = the retrains evaluated in paper/experiments/01_eval_and_ablation.ipynb.
 # ConvNeXt is the reason to switch: 71.35% -> 89.13% test accuracy (freeze_epochs
 # 8->3, patience 5->10, num_epochs 30->40, seed unchanged). EfficientNet and Swin
-# are near-flat (85.11->84.73 and 85.39->85.97). The v1 files are kept beside
-# these as a fallback; do not mix generations across backbones.
+# are near-flat (85.11->84.73 and 85.39->85.97). Do not mix generations across
+# backbones. There is no fallback: a missing file here raises. The v1
+# *_5cls_skin.pth set and an older best_*_5cls.pth set were deleted 2026-11-02 --
+# nothing loaded them, and v1 is the generation that fails the save-then-verify
+# gate (src/models/CLAUDE.md). Retrain if they are ever needed again.
 checkpoints:
   efficientnet: models/checkpoints/efficientNet/efficientnet_b1_5cls_skin_v2.pth
   convnext: models/checkpoints/convNext/convnext_tiny_5cls_skin_v2.pth

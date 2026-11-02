@@ -99,8 +99,11 @@ history = {
 Load helpers use `ckpt.get('best_melanoma_sens', float('nan'))` so older checkpoints
 without this key still load cleanly.
 
-**Caveat on the three original (v1) checkpoints** — `*_5cls_skin.pth`, kept only as a
-fallback now that `configs/models.yaml` loads the v2 retrains. They do not honour the `best_val_acc`
+**Caveat on the three original (v1) checkpoints** — `*_5cls_skin.pth`, **deleted from
+`models/checkpoints/` on 2026-11-02** along with an older bare-`state_dict` `best_*_5cls.pth`
+set (~479 MB total, gitignored so not recoverable from git; retrain if needed). Nothing
+loaded them and `configs/models.yaml` has no fallback logic. The caveat is kept because
+v1 numbers are still quoted in `paper/`. They do not honour the `best_val_acc`
 comment above: the original notebooks end with `best_val_acc = max(history['val_acc'])`,
 the maximum over *all* epochs, which is generally a different epoch from the one whose
 weights were saved. ConvNeXt is the clearest case — composite selected epoch 4 while

@@ -58,12 +58,15 @@ Only the five paper classes are present in the uploaded dataset; the Acne,
 Lichen_Planus, Psoriasis and Vitiligo folders that exist in the local corpus were
 not uploaded, so the notebooks' class filtering is a no-op here.
 
-Upload the checkpoints from `models/checkpoints/*/`. Use the **`*_5cls_skin_v2.pth`**
-files — the retrains, and what `configs/models.yaml` loads. Do not upload the v1
-`*_5cls_skin.pth` files: NB1 falls back to them when a v2 upload is missing, and a
-mixed-generation ensemble is meaningless. Either way, not `best_*.pth`: those are
-bare `state_dict`s with no `config`,
-`classes` or metrics, so the reproduction gate cannot run against them.
+Upload the checkpoints from `models/checkpoints/*/`. Those directories now hold
+**only** the three `*_5cls_skin_v2.pth` retrains — the v1 `*_5cls_skin.pth` and
+`best_*_5cls.pth` files were deleted on 2026-11-02, so there is nothing wrong left to
+upload. Historical reason to care: NB1 resolves v1 filenames as a last resort under its
+own `CKPT_ROOT`, so a stale v1 left in the Kaggle dataset could silently produce a
+mixed-generation ensemble, which is meaningless. NB1 tries v2 first and raises on mixed
+generations, but if you have an older checkpoint dataset uploaded, check it holds no
+`*_5cls_skin.pth`. `best_*.pth` were bare `state_dict`s with no `config`, `classes` or
+metrics, so the reproduction gate could never run against them.
 
 **Accelerator:** GPU T4 x1 for Notebooks 1, 4, 5 and 6; Notebooks 2 and 3 are
 CPU-only.
