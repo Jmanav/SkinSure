@@ -10,6 +10,7 @@ from api.schemas.predictions import (
     Predictions,
     Severity,
 )
+from src.utils.config import get_settings
 
 # "LLM interprets; Python decides": these rules run AFTER the summarizer and can only make
 # the outcome safer (escalate or block) - never downgrade what the LLM proposed.
@@ -57,6 +58,24 @@ def triage(
         reasons.append(f"melanoma at confidence {predictions.primary_confidence:.2f}")
         escalated = summary.severity != Severity.URGENT
         updates.update(severity=Severity.URGENT, immediate_referral=True)
+
+    # Rule F4 (prototype, config-gated, OFF by default): melanoma ranked BELOW top-1 but
+    # still probable -> urgent + immediate referral. Rule 2 gates on the argmax, so a
+    # melanoma that loses the argmax is unreachable there at any threshold. Needs the full
+    # distribution; with class_probabilities absent, probability_of() returns None for a
+    # label outside the top-2 and the rule simply does not fire (today's behaviour).
+    # Also skipped when blocked, matching Rule 2.
+    triage_cfg = get_settings().agents.triage
+    if not blocked and triage_cfg.escalate_on_ranked_melanoma and not is_melanoma:
+        p_mel = predictions.probability_of(MELANOMA_LABEL)
+        if p_mel is not None and p_mel >= triage_cfg.ranked_melanoma_min_confidence:
+            reasons.append(
+                f"melanoma ranked below top-1 at probability {p_mel:.2f} "
+                f">= {triage_cfg.ranked_melanoma_min_confidence:.2f} "
+                f"(top-1 was {predictions.primary_label.value})"
+            )
+            escalated = escalated or summary.severity != Severity.URGENT
+            updates.update(severity=Severity.URGENT, immediate_referral=True)
 
     # Rule 3: rapidly spreading infection -> urgent + immediate referral (also skipped when blocked).
     if (

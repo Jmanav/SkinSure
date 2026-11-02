@@ -5,3 +5,22 @@ summarizer:
   # now that temperature is rejected.
   max_tokens: 1000
   effort: low
+
+# Deterministic triage overrides (src/agents/severity_triage.py).
+triage:
+  # Rule F4 (PROTOTYPE, OFF by default): escalate to urgent when melanoma is NOT the
+  # top-1 prediction but its probability still clears the threshold. Rule 2 gates on
+  # the argmax, so a melanoma ranked second can never reach it at any threshold - all
+  # three melanomas the shipped ensemble misses are that shape.
+  #
+  # Turning this on changes clinical escalation behaviour: it sends more patients for
+  # urgent referral. Keep it false until the effect is validated on more melanoma
+  # cases than the 202 in the current validation split.
+  escalate_on_ranked_melanoma: false
+  # Chosen on the 748-image VALIDATION split (202 melanoma), never on test: the lowest
+  # threshold recovering all 3 non-argmax validation melanomas at ZERO false
+  # escalations on the 546 non-melanoma validation images (the 0.31-0.35 plateau).
+  # Frozen, then applied to test: recovers 2 of 3 known misses for 1 false escalation
+  # (0.23% of 441 non-melanoma test images). Below 0.31 the false rate turns positive;
+  # at 0.36 validation recall drops from 3 to 1.
+  ranked_melanoma_min_confidence: 0.31

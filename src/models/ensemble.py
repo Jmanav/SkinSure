@@ -154,4 +154,10 @@ class SkinEnsemble:
             secondary_label=self.classes[secondary_idx],
             secondary_confidence=secondary_conf,
             agreement_score=agreement_score,
+            # Full distribution: triage rules need p(melanoma) even when melanoma
+            # ranks third or lower, which the top-2 fields cannot express.
+            class_probabilities={
+                cls: min(float(p), 1.0)
+                for cls, p in zip(self.classes, ensemble_probs.tolist())
+            },
         )

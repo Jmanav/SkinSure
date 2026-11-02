@@ -23,6 +23,11 @@ class Predictions(BaseModel):
     secondary_label : DiseaseClass
     secondary_confidence: float = Field(ge=0.0, le=1.0)
     agreement_score : float = Field(ge=0.0, le=1.0)
+    # Full 5-class ensemble distribution, keyed by DiseaseClass value. OPTIONAL: top-2
+    # alone cannot see p(melanoma) when melanoma ranks third or lower, which is exactly
+    # the shape of the melanomas the ensemble misses. Rules that need it must degrade
+    # gracefully when it is None (older callers, hand-built test fixtures).
+    class_probabilities: dict[str, float] | None = None
 
     @model_validator(mode="after")
     def validate_top2(self):
@@ -31,6 +36,36 @@ class Predictions(BaseModel):
         if self.secondary_confidence > self.primary_confidence:
             raise ValueError("secondary_confidence cannot exceed primary_confidence")
         return self
+
+    @model_validator(mode="after")
+    def validate_class_probabilities(self):
+        if self.class_probabilities is None:
+            return self
+        expected = {c.value for c in DiseaseClass}
+        if set(self.class_probabilities) != expected:
+            raise ValueError(
+                f"class_probabilities keys must be exactly {sorted(expected)}, "
+                f"got {sorted(self.class_probabilities)}"
+            )
+        for label, p in self.class_probabilities.items():
+            if not 0.0 <= p <= 1.0:
+                raise ValueError(f"class_probabilities['{label}'] must be in [0,1], got {p}")
+        return self
+
+    def probability_of(self, label: DiseaseClass) -> float | None:
+        """p(label) from the full distribution, or None when it was not supplied.
+
+        Falls back to the top-2 fields when they happen to carry the answer, so a
+        caller without class_probabilities still gets a value for a label that
+        ranked first or second.
+        """
+        if self.class_probabilities is not None:
+            return self.class_probabilities[label.value]
+        if label == self.primary_label:
+            return self.primary_confidence
+        if label == self.secondary_label:
+            return self.secondary_confidence
+        return None
 
     def confidence_tier(self) -> str:
         # agreement_score is a fraction of 3 models: 0.0 / 0.33 / 0.67 / 1.0.

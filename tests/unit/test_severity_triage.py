@@ -6,6 +6,10 @@ from src.agents.severity_triage import (
     MELANOMA_URGENT_MIN_CONFIDENCE,
     triage,
 )
+from src.utils.config import get_settings
+
+# Threshold selected on the validation split (see configs/agents.yaml).
+RANKED_MELANOMA_DEFAULT = 0.31
 
 MEL, TINEA, ECZEMA, BCC = (
     DiseaseClass.MELANOMA,
@@ -166,3 +170,149 @@ def test_existing_caveats_are_kept_when_blocking(make_predictions, make_summary,
 
     assert result.summary.confidence_caveats[0] == "existing"
     assert len(result.summary.confidence_caveats) == 2
+
+
+# --- Rule F4: melanoma ranked below top-1 (config-gated, OFF by default) ------------------------
+
+def _probs(mel, primary_label, primary_conf):
+    """A full 5-class distribution with p(melanoma)=mel and the rest padded out."""
+    rest = [c for c in DiseaseClass if c not in (MEL, primary_label)]
+    spare = max(0.0, 1.0 - mel - primary_conf)
+    d = {MEL.value: mel, primary_label.value: primary_conf}
+    for i, c in enumerate(rest):
+        d[c.value] = spare if i == 0 else 0.0
+    return d
+
+
+def _ranked_mel_preds(make_predictions, p_mel, primary_conf=0.55, primary_label=BCC):
+    """Melanoma present at p_mel but NOT the top-1 - the shape Rule 2 cannot see."""
+    return make_predictions(
+        primary_label=primary_label,
+        primary_confidence=primary_conf,
+        secondary_label=MEL,
+        secondary_confidence=p_mel,
+        class_probabilities=_probs(p_mel, primary_label, primary_conf),
+    )
+
+
+@pytest.fixture
+def f4(monkeypatch):
+    """Turn Rule F4 on (optionally at a given threshold) for one test."""
+    def _set(enabled=True, threshold=RANKED_MELANOMA_DEFAULT):
+        cfg = get_settings().agents.triage
+        monkeypatch.setattr(cfg, "escalate_on_ranked_melanoma", enabled)
+        monkeypatch.setattr(cfg, "ranked_melanoma_min_confidence", threshold)
+    return _set
+
+
+def test_f4_is_off_by_default_in_shipped_config():
+    # The whole point of the flag: shipped behaviour is unchanged.
+    assert get_settings().agents.triage.escalate_on_ranked_melanoma is False
+
+
+def test_f4_off_leaves_ranked_melanoma_alone(make_predictions, make_summary, make_patient):
+    # Today's behaviour exactly: a melanoma at 0.37 behind a BCC top-1 is not urgent.
+    preds = _ranked_mel_preds(make_predictions, 0.37)
+    result = triage(preds, make_summary(severity=Severity.MONITOR), make_patient())
+
+    assert result.summary.severity is Severity.MONITOR
+    assert result.escalated is False
+    assert result.reasons == []
+
+
+def test_f4_on_escalates_ranked_melanoma_above_threshold(
+    make_predictions, make_summary, make_patient, f4
+):
+    f4()
+    preds = _ranked_mel_preds(make_predictions, 0.37)
+    result = triage(preds, make_summary(severity=Severity.MONITOR), make_patient())
+
+    assert result.summary.severity is Severity.URGENT
+    assert result.summary.immediate_referral is True
+    assert result.escalated is True
+    assert result.blocked is False
+    # A distinct audit reason, so a log shows F4 fired rather than Rule 2.
+    assert any("ranked below top-1" in r for r in result.reasons)
+
+
+def test_f4_at_exactly_the_threshold_escalates(make_predictions, make_summary, make_patient, f4):
+    f4(threshold=0.31)
+    preds = _ranked_mel_preds(make_predictions, 0.31)
+    result = triage(preds, make_summary(), make_patient())
+    assert result.summary.severity is Severity.URGENT
+
+
+def test_f4_below_threshold_does_not_escalate(make_predictions, make_summary, make_patient, f4):
+    f4(threshold=0.31)
+    # The third real miss: p(mel)=0.064. No usable threshold reaches it.
+    preds = _ranked_mel_preds(make_predictions, 0.064, primary_conf=0.70)
+    result = triage(preds, make_summary(severity=Severity.ROUTINE), make_patient())
+
+    assert result.summary.severity is Severity.ROUTINE
+    assert result.escalated is False
+
+
+def test_f4_does_not_escalate_when_blocked(make_predictions, make_summary, make_patient, f4):
+    f4(threshold=0.31)
+    # Top-1 below the block threshold: a withheld result must not be shown as urgent.
+    preds = _ranked_mel_preds(make_predictions, 0.35, primary_conf=0.39)
+    result = triage(preds, make_summary(), make_patient())
+
+    assert result.blocked is True
+    assert result.summary.severity is not Severity.URGENT
+    assert result.escalated is False
+    assert not any("ranked below top-1" in r for r in result.reasons)
+
+
+def test_f4_falls_back_gracefully_without_class_probabilities(
+    make_predictions, make_summary, make_patient, f4
+):
+    f4(threshold=0.31)
+    # No full distribution and melanoma outside the top-2: nothing to read, so the
+    # rule must not fire (and must not raise).
+    preds = make_predictions(
+        primary_label=BCC,
+        primary_confidence=0.55,
+        secondary_label=DiseaseClass.KERATOSIS,
+        secondary_confidence=0.30,
+    )
+    assert preds.class_probabilities is None
+    result = triage(preds, make_summary(severity=Severity.MONITOR), make_patient())
+
+    assert result.summary.severity is Severity.MONITOR
+    assert result.escalated is False
+
+
+def test_f4_uses_secondary_confidence_when_distribution_absent(
+    make_predictions, make_summary, make_patient, f4
+):
+    f4(threshold=0.31)
+    # Melanoma ranked second with no class_probabilities: top-2 already carries p(mel).
+    preds = make_predictions(
+        primary_label=BCC, primary_confidence=0.55,
+        secondary_label=MEL, secondary_confidence=0.37,
+    )
+    result = triage(preds, make_summary(), make_patient())
+    assert result.summary.severity is Severity.URGENT
+
+
+def test_f4_does_not_double_fire_on_melanoma_top1(make_predictions, make_summary, make_patient, f4):
+    f4(threshold=0.31)
+    # Melanoma IS the top-1: Rule 2 owns this case, F4 must stay out.
+    result = triage(_preds(make_predictions, MEL, 0.62), make_summary(), make_patient())
+
+    assert result.summary.severity is Severity.URGENT
+    assert any("melanoma at confidence" in r for r in result.reasons)
+    assert not any("ranked below top-1" in r for r in result.reasons)
+
+
+@pytest.mark.parametrize("severity", [Severity.URGENT])
+def test_f4_never_downgrades(make_predictions, make_summary, make_patient, f4, severity):
+    f4(threshold=0.31)
+    # Below threshold and the LLM already said urgent: the rule must leave it urgent.
+    preds = _ranked_mel_preds(make_predictions, 0.10, primary_conf=0.70)
+    llm = make_summary(severity=severity, immediate_referral=True)
+    result = triage(preds, llm, make_patient())
+
+    assert result.summary.severity is Severity.URGENT
+    assert result.escalated is False

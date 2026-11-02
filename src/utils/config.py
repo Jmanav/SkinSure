@@ -23,8 +23,17 @@ class SummarizerConfig(BaseModel):
     effort: str = "low"
 
 
+class TriageConfig(BaseModel):
+    # Rule F4: escalate when melanoma is ranked below top-1 but still probable.
+    # Default OFF - it changes clinical escalation behaviour. Threshold selected on
+    # the validation split; see configs/agents.yaml for the criterion.
+    escalate_on_ranked_melanoma: bool = False
+    ranked_melanoma_min_confidence: float = 0.31
+
+
 class AgentsConfig(BaseModel):
     summarizer: SummarizerConfig
+    triage: TriageConfig = TriageConfig()
 
 
 class Settings(BaseSettings):
