@@ -1,0 +1,6 @@
+,Basal_Cell_Carcinoma,Eczema,Keratosis,Melanoma,Tinea
+Basal_Cell_Carcinoma,105,0,1,0,0
+Eczema,0,89,1,0,21
+Keratosis,11,21,87,6,8
+Melanoma,0,0,2,122,0
+Tinea,0,17,1,0,73

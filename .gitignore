@@ -12,3 +12,10 @@ data/processed/
 # Training-run archives downloaded from Kaggle (checkpoints, caches, histories).
 # Large binaries; the metrics they contain are transcribed into paper/new_results.md.
 *.zip
+
+# Paper evaluation outputs (paper/experiments/01_eval_and_ablation.ipynb).
+# The CSVs, JSON, figures and helper scripts are committed; these two are not:
+#   ckpts/  - 240 MB of .pth checkpoints, same policy as models/checkpoints/
+#   *.npz   - regenerable per-backbone logit caches; the CSVs derived from them are the results
+.nb1out/ckpts/
+.nb1out/*.npz

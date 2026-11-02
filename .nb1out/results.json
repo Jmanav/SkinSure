@@ -1,0 +1,1744 @@
+{
+  "meta": {
+    "notebook": "01_eval_and_ablation.ipynb",
+    "generated_utc": "2026-10-30T21:51:15Z",
+    "seed": 42,
+    "gpu": "CPU",
+    "torch": "2.11.0+cpu",
+    "timm": "1.0.29",
+    "cudnn_deterministic": true,
+    "data_root": "/kaggle/input/datasets/jainmanav20/ipd-skin-dataset/IPD_Datasets_Final_Split",
+    "ckpt_root": "/kaggle/working/ckpts",
+    "classes": [
+      "Basal_Cell_Carcinoma",
+      "Eczema",
+      "Keratosis",
+      "Melanoma",
+      "Tinea"
+    ],
+    "architecture_note": "Three independently fine-tuned backbones combined by an EQUAL-WEIGHT mean of their softmax outputs. No fusion network, no learned projections, no fusion MLP exists in any checkpoint.",
+    "eval_transform": "Resize((224,224)) -> ToTensor -> Normalize(ImageNet)",
+    "test_set_note": "Every metric in this file is computed on the DE-DUPLICATED test set. Notebook 2 flagged test images with a perceptual-hash near-duplicate (pHash, Hamming d<=5) in train or val and those were removed. The reproduction gate in section 6 is the one exception: it runs on the full test set because the checkpoints stored their accuracy on that basis. Full-test numbers are in results_full_contaminated.json for reference only."
+  },
+  "deduplication": {
+    "eval_set": "clean",
+    "manifest": "/kaggle/input/datasets/jainmanav20/dedup-eval-csv/test_clean_manifest.csv",
+    "n_full": 727,
+    "n_clean": 565,
+    "n_removed": 162,
+    "pct_removed": 22.283356258596974,
+    "class_counts": {
+      "Basal_Cell_Carcinoma": 106,
+      "Eczema": 111,
+      "Keratosis": 133,
+      "Melanoma": 124,
+      "Tinea": 91
+    }
+  },
+  "splits": {
+    "n": {
+      "val": 748,
+      "test": 727
+    },
+    "class_counts": {
+      "val": {
+        "Basal_Cell_Carcinoma": 119,
+        "Eczema": 148,
+        "Keratosis": 159,
+        "Melanoma": 202,
+        "Tinea": 120
+      },
+      "test": {
+        "Basal_Cell_Carcinoma": 121,
+        "Eczema": 145,
+        "Keratosis": 158,
+        "Melanoma": 188,
+        "Tinea": 115
+      }
+    }
+  },
+  "checkpoint_reference": {
+    "EfficientNet-B1": {
+      "timm_model_name": "efficientnet_b1",
+      "test_acc": 0.8473177441540578,
+      "macro_auc": 0.9704132075327238,
+      "best_val_acc": 0.8422459893048129,
+      "best_melanoma_sens_val": 0.9900990099009901,
+      "best_composite_val": 0.9310663419283105,
+      "epochs_actually_run": 25,
+      "epochs_configured": 30
+    },
+    "ConvNeXt-Tiny": {
+      "timm_model_name": "convnext_tiny",
+      "test_acc": 0.8913342503438789,
+      "macro_auc": 0.9684000059879476,
+      "best_val_acc": 0.8863636363636364,
+      "best_melanoma_sens_val": 0.9851485148514851,
+      "best_composite_val": 0.9524054716396009,
+      "epochs_actually_run": 40,
+      "epochs_configured": 40
+    },
+    "Swin-Tiny": {
+      "timm_model_name": "swin_tiny_patch4_window7_224",
+      "test_acc": 0.859697386519945,
+      "macro_auc": 0.9737358109312158,
+      "best_val_acc": 0.8489304812834224,
+      "best_melanoma_sens_val": 1.0,
+      "best_composite_val": 0.9433919022154316,
+      "epochs_actually_run": 30,
+      "epochs_configured": 30
+    }
+  },
+  "reproduction_check": [
+    {
+      "model": "EfficientNet-B1",
+      "acc_repro": 0.8473177441540578,
+      "acc_ckpt": 0.8473177441540578,
+      "acc_delta_pp": 0.0,
+      "auc_repro": 0.9704132075327238,
+      "auc_ckpt": 0.9704132075327238,
+      "auc_delta": 0.0,
+      "within_tol": true
+    },
+    {
+      "model": "ConvNeXt-Tiny",
+      "acc_repro": 0.8913342503438789,
+      "acc_ckpt": 0.8913342503438789,
+      "acc_delta_pp": 0.0,
+      "auc_repro": 0.9684000059879476,
+      "auc_ckpt": 0.9684000059879476,
+      "auc_delta": 0.0,
+      "within_tol": true
+    },
+    {
+      "model": "Swin-Tiny",
+      "acc_repro": 0.859697386519945,
+      "acc_ckpt": 0.859697386519945,
+      "acc_delta_pp": 0.0,
+      "auc_repro": 0.9737358109312158,
+      "auc_ckpt": 0.9737358109312158,
+      "auc_delta": 0.0,
+      "within_tol": true
+    }
+  ],
+  "configs": {
+    "E": {
+      "label": "EfficientNet-B1",
+      "members": [
+        "E"
+      ],
+      "metrics": {
+        "accuracy": 0.8424778761061947,
+        "balanced_accuracy": 0.8465143895646507,
+        "macro_auc": 0.9677906012035098,
+        "mcc": 0.8065774281089322,
+        "macro_f1": 0.8383818182269873,
+        "per_class": {
+          "Basal_Cell_Carcinoma": {
+            "precision": 0.9051724137931034,
+            "recall": 0.9905660377358491,
+            "f1": 0.9459459459459459,
+            "specificity": 0.9760348583877996,
+            "support": 106,
+            "auc": 0.9962593003658486
+          },
+          "Eczema": {
+            "precision": 0.7007874015748031,
+            "recall": 0.8018018018018018,
+            "f1": 0.7478991596638656,
+            "specificity": 0.9162995594713657,
+            "support": 111,
+            "auc": 0.9476921855776481
+          },
+          "Keratosis": {
+            "precision": 0.9456521739130435,
+            "recall": 0.6541353383458647,
+            "f1": 0.7733333333333333,
+            "specificity": 0.9884259259259259,
+            "support": 133,
+            "auc": 0.944722918407129
+          },
+          "Melanoma": {
+            "precision": 0.953125,
+            "recall": 0.9838709677419355,
+            "f1": 0.9682539682539683,
+            "specificity": 0.9863945578231292,
+            "support": 124,
+            "auc": 0.9929595494111623
+          },
+          "Tinea": {
+            "precision": 0.7156862745098039,
+            "recall": 0.8021978021978022,
+            "f1": 0.7564766839378239,
+            "specificity": 0.9388185654008439,
+            "support": 91,
+            "auc": 0.9573190522557611
+          }
+        },
+        "confusion_matrix": [
+          [
+            105,
+            0,
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            89,
+            1,
+            0,
+            21
+          ],
+          [
+            11,
+            21,
+            87,
+            6,
+            8
+          ],
+          [
+            0,
+            0,
+            2,
+            122,
+            0
+          ],
+          [
+            0,
+            17,
+            1,
+            0,
+            73
+          ]
+        ]
+      },
+      "bootstrap_ci": {
+        "accuracy": {
+          "mean": 0.8422530973451328,
+          "lo": 0.8123893805309734,
+          "hi": 0.8725663716814159,
+          "n": 2000
+        },
+        "macro_auc": {
+          "mean": 0.9678002509657756,
+          "lo": 0.958540824431826,
+          "hi": 0.9762102760147211,
+          "n": 2000
+        },
+        "mcc": {
+          "mean": 0.8063268083755024,
+          "lo": 0.7698422319923208,
+          "hi": 0.8425103906699665,
+          "n": 2000
+        },
+        "auc_draws_skipped": 0
+      }
+    },
+    "C": {
+      "label": "ConvNeXt-Tiny",
+      "members": [
+        "C"
+      ],
+      "metrics": {
+        "accuracy": 0.8867256637168142,
+        "balanced_accuracy": 0.8884527309824423,
+        "macro_auc": 0.9641055265784291,
+        "mcc": 0.8603248814460752,
+        "macro_f1": 0.8832923805407489,
+        "per_class": {
+          "Basal_Cell_Carcinoma": {
+            "precision": 0.8617886178861789,
+            "recall": 1.0,
+            "f1": 0.925764192139738,
+            "specificity": 0.9629629629629629,
+            "support": 106,
+            "auc": 0.9872569572902536
+          },
+          "Eczema": {
+            "precision": 0.7903225806451613,
+            "recall": 0.8828828828828829,
+            "f1": 0.8340425531914893,
+            "specificity": 0.9427312775330396,
+            "support": 111,
+            "auc": 0.9538437115529627
+          },
+          "Keratosis": {
+            "precision": 0.9619047619047619,
+            "recall": 0.7593984962406015,
+            "f1": 0.8487394957983193,
+            "specificity": 0.9907407407407407,
+            "support": 133,
+            "auc": 0.9327659426343636
+          },
+          "Melanoma": {
+            "precision": 0.9918032786885246,
+            "recall": 0.9758064516129032,
+            "f1": 0.983739837398374,
+            "specificity": 0.9977324263038548,
+            "support": 124,
+            "auc": 0.9982444590739522
+          },
+          "Tinea": {
+            "precision": 0.8241758241758241,
+            "recall": 0.8241758241758241,
+            "f1": 0.8241758241758241,
+            "specificity": 0.9662447257383966,
+            "support": 91,
+            "auc": 0.9484165623406129
+          }
+        },
+        "confusion_matrix": [
+          [
+            106,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            98,
+            2,
+            0,
+            11
+          ],
+          [
+            16,
+            10,
+            101,
+            1,
+            5
+          ],
+          [
+            1,
+            0,
+            2,
+            121,
+            0
+          ],
+          [
+            0,
+            16,
+            0,
+            0,
+            75
+          ]
+        ]
+      },
+      "bootstrap_ci": {
+        "accuracy": {
+          "mean": 0.8866159292035398,
+          "lo": 0.8584070796460177,
+          "hi": 0.9132743362831859,
+          "n": 2000
+        },
+        "macro_auc": {
+          "mean": 0.9640742180506278,
+          "lo": 0.951614834943092,
+          "hi": 0.9748902396947945,
+          "n": 2000
+        },
+        "mcc": {
+          "mean": 0.8601892087068314,
+          "lo": 0.8266477706592474,
+          "hi": 0.8919449984821777,
+          "n": 2000
+        },
+        "auc_draws_skipped": 0
+      }
+    },
+    "S": {
+      "label": "Swin-Tiny",
+      "members": [
+        "S"
+      ],
+      "metrics": {
+        "accuracy": 0.856637168141593,
+        "balanced_accuracy": 0.8600476441108148,
+        "macro_auc": 0.9706832863410373,
+        "mcc": 0.823145348053652,
+        "macro_f1": 0.8530339379127423,
+        "per_class": {
+          "Basal_Cell_Carcinoma": {
+            "precision": 0.8455284552845529,
+            "recall": 0.9811320754716981,
+            "f1": 0.9082969432314411,
+            "specificity": 0.9586056644880174,
+            "support": 106,
+            "auc": 0.9940600978336828
+          },
+          "Eczema": {
+            "precision": 0.75,
+            "recall": 0.8378378378378378,
+            "f1": 0.7914893617021277,
+            "specificity": 0.9317180616740088,
+            "support": 111,
+            "auc": 0.9618803825852283
+          },
+          "Keratosis": {
+            "precision": 0.91,
+            "recall": 0.6842105263157895,
+            "f1": 0.7811158798283262,
+            "specificity": 0.9791666666666666,
+            "support": 133,
+            "auc": 0.9394145084934559
+          },
+          "Melanoma": {
+            "precision": 0.976,
+            "recall": 0.9838709677419355,
+            "f1": 0.9799196787148594,
+            "specificity": 0.9931972789115646,
+            "support": 124,
+            "auc": 0.9980067295735499
+          },
+          "Tinea": {
+            "precision": 0.7956989247311828,
+            "recall": 0.8131868131868132,
+            "f1": 0.8043478260869565,
+            "specificity": 0.959915611814346,
+            "support": 91,
+            "auc": 0.9600547132192702
+          }
+        },
+        "confusion_matrix": [
+          [
+            104,
+            0,
+            1,
+            1,
+            0
+          ],
+          [
+            0,
+            93,
+            5,
+            0,
+            13
+          ],
+          [
+            19,
+            15,
+            91,
+            2,
+            6
+          ],
+          [
+            0,
+            0,
+            2,
+            122,
+            0
+          ],
+          [
+            0,
+            16,
+            1,
+            0,
+            74
+          ]
+        ]
+      },
+      "bootstrap_ci": {
+        "accuracy": {
+          "mean": 0.8560725663716814,
+          "lo": 0.8265486725663717,
+          "hi": 0.8849557522123894,
+          "n": 2000
+        },
+        "macro_auc": {
+          "mean": 0.9706935837732158,
+          "lo": 0.9604995333600713,
+          "hi": 0.9793083907812155,
+          "n": 2000
+        },
+        "mcc": {
+          "mean": 0.8224448008976318,
+          "lo": 0.7869610284610548,
+          "hi": 0.8567839014229984,
+          "n": 2000
+        },
+        "auc_draws_skipped": 0
+      }
+    },
+    "EC": {
+      "label": "EfficientNet + ConvNeXt",
+      "members": [
+        "E",
+        "C"
+      ],
+      "metrics": {
+        "accuracy": 0.8814159292035398,
+        "balanced_accuracy": 0.8845375375935648,
+        "macro_auc": 0.9797617734590777,
+        "mcc": 0.8545351294058305,
+        "macro_f1": 0.878399852476665,
+        "per_class": {
+          "Basal_Cell_Carcinoma": {
+            "precision": 0.8760330578512396,
+            "recall": 1.0,
+            "f1": 0.933920704845815,
+            "specificity": 0.9673202614379085,
+            "support": 106,
+            "auc": 0.9967525794384839
+          },
+          "Eczema": {
+            "precision": 0.7692307692307693,
+            "recall": 0.9009009009009009,
+            "f1": 0.8298755186721992,
+            "specificity": 0.933920704845815,
+            "support": 111,
+            "auc": 0.9688256538476803
+          },
+          "Keratosis": {
+            "precision": 0.9696969696969697,
+            "recall": 0.7218045112781954,
+            "f1": 0.8275862068965517,
+            "specificity": 0.9930555555555556,
+            "support": 133,
+            "auc": 0.9638680033416875
+          },
+          "Melanoma": {
+            "precision": 0.968,
+            "recall": 0.9758064516129032,
+            "f1": 0.9718875502008032,
+            "specificity": 0.9909297052154195,
+            "support": 124,
+            "auc": 0.9982261721893058
+          },
+          "Tinea": {
+            "precision": 0.8333333333333334,
+            "recall": 0.8241758241758241,
+            "f1": 0.8287292817679558,
+            "specificity": 0.9683544303797469,
+            "support": 91,
+            "auc": 0.9711364584782306
+          }
+        },
+        "confusion_matrix": [
+          [
+            106,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            100,
+            1,
+            0,
+            10
+          ],
+          [
+            14,
+            14,
+            96,
+            4,
+            5
+          ],
+          [
+            1,
+            0,
+            2,
+            121,
+            0
+          ],
+          [
+            0,
+            16,
+            0,
+            0,
+            75
+          ]
+        ]
+      },
+      "bootstrap_ci": {
+        "accuracy": {
+          "mean": 0.8812530973451328,
+          "lo": 0.8530973451327434,
+          "hi": 0.9097345132743363,
+          "n": 2000
+        },
+        "macro_auc": {
+          "mean": 0.979747380410021,
+          "lo": 0.9722461715080605,
+          "hi": 0.9861217996987242,
+          "n": 2000
+        },
+        "mcc": {
+          "mean": 0.8543440073526344,
+          "lo": 0.8204276220277951,
+          "hi": 0.8879191770540744,
+          "n": 2000
+        },
+        "auc_draws_skipped": 0
+      }
+    },
+    "ES": {
+      "label": "EfficientNet + Swin",
+      "members": [
+        "E",
+        "S"
+      ],
+      "metrics": {
+        "accuracy": 0.8584070796460177,
+        "balanced_accuracy": 0.8616304442280672,
+        "macro_auc": 0.977215993175118,
+        "mcc": 0.8255465747706067,
+        "macro_f1": 0.8539589950238373,
+        "per_class": {
+          "Basal_Cell_Carcinoma": {
+            "precision": 0.8833333333333333,
+            "recall": 1.0,
+            "f1": 0.9380530973451328,
+            "specificity": 0.9694989106753813,
+            "support": 106,
+            "auc": 0.9968758992066429
+          },
+          "Eczema": {
+            "precision": 0.7394957983193278,
+            "recall": 0.7927927927927928,
+            "f1": 0.7652173913043478,
+            "specificity": 0.9317180616740088,
+            "support": 111,
+            "auc": 0.9653331745842759
+          },
+          "Keratosis": {
+            "precision": 0.9489795918367347,
+            "recall": 0.6992481203007519,
+            "f1": 0.8051948051948052,
+            "specificity": 0.9884259259259259,
+            "support": 133,
+            "auc": 0.9555659983291562
+          },
+          "Melanoma": {
+            "precision": 0.968503937007874,
+            "recall": 0.9919354838709677,
+            "f1": 0.9800796812749004,
+            "specificity": 0.9909297052154195,
+            "support": 124,
+            "auc": 0.9966352132250749
+          },
+          "Tinea": {
+            "precision": 0.7425742574257426,
+            "recall": 0.8241758241758241,
+            "f1": 0.78125,
+            "specificity": 0.9451476793248945,
+            "support": 91,
+            "auc": 0.9716696805304401
+          }
+        },
+        "confusion_matrix": [
+          [
+            106,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            88,
+            3,
+            0,
+            20
+          ],
+          [
+            14,
+            16,
+            93,
+            4,
+            6
+          ],
+          [
+            0,
+            0,
+            1,
+            123,
+            0
+          ],
+          [
+            0,
+            15,
+            1,
+            0,
+            75
+          ]
+        ]
+      },
+      "bootstrap_ci": {
+        "accuracy": {
+          "mean": 0.8578654867256637,
+          "lo": 0.8265486725663717,
+          "hi": 0.8867256637168142,
+          "n": 2000
+        },
+        "macro_auc": {
+          "mean": 0.9772098681072207,
+          "lo": 0.9696126296142106,
+          "hi": 0.9835810960561543,
+          "n": 2000
+        },
+        "mcc": {
+          "mean": 0.8249034654969498,
+          "lo": 0.7876006824376728,
+          "hi": 0.8592611862982021,
+          "n": 2000
+        },
+        "auc_draws_skipped": 0
+      }
+    },
+    "CS": {
+      "label": "ConvNeXt + Swin",
+      "members": [
+        "C",
+        "S"
+      ],
+      "metrics": {
+        "accuracy": 0.8831858407079646,
+        "balanced_accuracy": 0.8865464412153716,
+        "macro_auc": 0.9766229465635519,
+        "mcc": 0.8566991760958395,
+        "macro_f1": 0.8796532624884932,
+        "per_class": {
+          "Basal_Cell_Carcinoma": {
+            "precision": 0.8548387096774194,
+            "recall": 1.0,
+            "f1": 0.9217391304347826,
+            "specificity": 0.9607843137254902,
+            "support": 106,
+            "auc": 0.9956838081144408
+          },
+          "Eczema": {
+            "precision": 0.792,
+            "recall": 0.8918918918918919,
+            "f1": 0.8389830508474576,
+            "specificity": 0.9427312775330396,
+            "support": 111,
+            "auc": 0.9675159741239036
+          },
+          "Keratosis": {
+            "precision": 0.9696969696969697,
+            "recall": 0.7218045112781954,
+            "f1": 0.8275862068965517,
+            "specificity": 0.9930555555555556,
+            "support": 133,
+            "auc": 0.954312865497076
+          },
+          "Melanoma": {
+            "precision": 0.9838709677419355,
+            "recall": 0.9838709677419355,
+            "f1": 0.9838709677419355,
+            "specificity": 0.9954648526077098,
+            "support": 124,
+            "auc": 0.9995428278838416
+          },
+          "Tinea": {
+            "precision": 0.8172043010752689,
+            "recall": 0.8351648351648352,
+            "f1": 0.8260869565217391,
+            "specificity": 0.9641350210970464,
+            "support": 91,
+            "auc": 0.9660592571984976
+          }
+        },
+        "confusion_matrix": [
+          [
+            106,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            99,
+            2,
+            0,
+            10
+          ],
+          [
+            17,
+            11,
+            96,
+            2,
+            7
+          ],
+          [
+            1,
+            0,
+            1,
+            122,
+            0
+          ],
+          [
+            0,
+            15,
+            0,
+            0,
+            76
+          ]
+        ]
+      },
+      "bootstrap_ci": {
+        "accuracy": {
+          "mean": 0.8829831858407081,
+          "lo": 0.8548672566371681,
+          "hi": 0.9079646017699115,
+          "n": 2000
+        },
+        "macro_auc": {
+          "mean": 0.976652257063748,
+          "lo": 0.9670429484138311,
+          "hi": 0.9844095278583948,
+          "n": 2000
+        },
+        "mcc": {
+          "mean": 0.856444495373003,
+          "lo": 0.8221218062102407,
+          "hi": 0.8869078635611176,
+          "n": 2000
+        },
+        "auc_draws_skipped": 0
+      }
+    },
+    "ECS": {
+      "label": "EfficientNet + ConvNeXt + Swin",
+      "members": [
+        "E",
+        "C",
+        "S"
+      ],
+      "metrics": {
+        "accuracy": 0.8778761061946903,
+        "balanced_accuracy": 0.8815300187965722,
+        "macro_auc": 0.9813246452851423,
+        "mcc": 0.8504452705958604,
+        "macro_f1": 0.8746473745891642,
+        "per_class": {
+          "Basal_Cell_Carcinoma": {
+            "precision": 0.8760330578512396,
+            "recall": 1.0,
+            "f1": 0.933920704845815,
+            "specificity": 0.9673202614379085,
+            "support": 106,
+            "auc": 0.9970403255641879
+          },
+          "Eczema": {
+            "precision": 0.7633587786259542,
+            "recall": 0.9009009009009009,
+            "f1": 0.8264462809917356,
+            "specificity": 0.9317180616740088,
+            "support": 111,
+            "auc": 0.9706512680080962
+          },
+          "Keratosis": {
+            "precision": 0.9690721649484536,
+            "recall": 0.706766917293233,
+            "f1": 0.8173913043478261,
+            "specificity": 0.9930555555555556,
+            "support": 133,
+            "auc": 0.9664786967418547
+          },
+          "Melanoma": {
+            "precision": 0.9758064516129032,
+            "recall": 0.9758064516129032,
+            "f1": 0.9758064516129032,
+            "specificity": 0.9931972789115646,
+            "support": 124,
+            "auc": 0.9987199180747568
+          },
+          "Tinea": {
+            "precision": 0.8152173913043478,
+            "recall": 0.8241758241758241,
+            "f1": 0.819672131147541,
+            "specificity": 0.9641350210970464,
+            "support": 91,
+            "auc": 0.9737330180368156
+          }
+        },
+        "confusion_matrix": [
+          [
+            106,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            100,
+            1,
+            0,
+            10
+          ],
+          [
+            14,
+            15,
+            94,
+            3,
+            7
+          ],
+          [
+            1,
+            0,
+            2,
+            121,
+            0
+          ],
+          [
+            0,
+            16,
+            0,
+            0,
+            75
+          ]
+        ]
+      },
+      "bootstrap_ci": {
+        "accuracy": {
+          "mean": 0.8776309734513275,
+          "lo": 0.8495575221238938,
+          "hi": 0.904424778761062,
+          "n": 2000
+        },
+        "macro_auc": {
+          "mean": 0.9813191646275887,
+          "lo": 0.9743926307949712,
+          "hi": 0.9872159210859797,
+          "n": 2000
+        },
+        "mcc": {
+          "mean": 0.8501435545018087,
+          "lo": 0.8163461881317301,
+          "hi": 0.881844180137784,
+          "n": 2000
+        },
+        "auc_draws_skipped": 0
+      }
+    }
+  },
+  "paired_bootstrap_ensemble_minus_swin": {
+    "accuracy (pp)": {
+      "observed": 2.123893805309729,
+      "ci_lo": 0.3539823008849585,
+      "ci_hi": 4.070796460176995,
+      "mean": 2.155840707964602,
+      "frac_favouring_ensemble": 0.9885,
+      "ci_includes_zero": false,
+      "n": 2000
+    },
+    "macro-AUC": {
+      "observed": 0.010641358944105006,
+      "ci_lo": 0.00544128954290995,
+      "ci_hi": 0.01633583444754082,
+      "mean": 0.010625580854373075,
+      "frac_favouring_ensemble": 1.0,
+      "ci_includes_zero": false,
+      "n": 2000
+    },
+    "MCC": {
+      "observed": 0.027299922542208366,
+      "ci_lo": 0.005031358863364902,
+      "ci_hi": 0.051463667623290424,
+      "mean": 0.027698753604176965,
+      "frac_favouring_ensemble": 0.9915,
+      "ci_includes_zero": false,
+      "n": 2000
+    }
+  },
+  "agreement": {
+    "n_test": 565,
+    "unanimous_n": 484,
+    "unanimous_frac": 0.856637168141593,
+    "accuracy_when_unanimous": 0.9214876033057852,
+    "disagreed_n": 81,
+    "accuracy_when_disagreed": 0.6172839506172839,
+    "tiers": [
+      {
+        "tier": 0.33,
+        "n": 0,
+        "pct": 0.0,
+        "accuracy": NaN
+      },
+      {
+        "tier": 0.67,
+        "n": 0,
+        "pct": 0.0,
+        "accuracy": NaN
+      },
+      {
+        "tier": 1.0,
+        "n": 484,
+        "pct": 85.6637168141593,
+        "accuracy": 0.9214876033057852
+      }
+    ]
+  },
+  "weight_search_secondary": {
+    "searched_on": "val",
+    "n_candidates": 66,
+    "step": 0.1,
+    "best_weights": {
+      "E": 0.3,
+      "C": 0.5,
+      "S": 0.2
+    },
+    "val_accuracy_best": 0.8877005347593583,
+    "val_accuracy_equal": 0.8703208556149733,
+    "test_accuracy_tuned": 0.8884955752212389,
+    "test_macro_auc_tuned": 0.9813065710191278,
+    "test_mcc_tuned": 0.8627874372879906,
+    "test_accuracy_equal": 0.8778761061946903,
+    "note": "SECONDARY RESULT. Weights chosen on val only; test used once. Primary reported system is the equal-weight average."
+  },
+  "calibration": {
+    "E": {
+      "label": "EfficientNet-B1",
+      "n_bins": 10,
+      "ece": 0.030444555050503915,
+      "mce": 0.7441913783550262,
+      "mean_confidence": 0.8489505648612976,
+      "accuracy": 0.8424778761061947,
+      "overconfidence": 0.006472688755102873,
+      "bins": [
+        {
+          "bin_lo": 0.0,
+          "bin_hi": 0.1,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.1,
+          "bin_hi": 0.2,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.2,
+          "bin_hi": 0.30000000000000004,
+          "n": 1,
+          "mean_conf": 0.25580862164497375,
+          "accuracy": 1.0,
+          "gap": 0.7441913783550262
+        },
+        {
+          "bin_lo": 0.30000000000000004,
+          "bin_hi": 0.4,
+          "n": 3,
+          "mean_conf": 0.34367766976356506,
+          "accuracy": 1.0,
+          "gap": 0.6563223302364349
+        },
+        {
+          "bin_lo": 0.4,
+          "bin_hi": 0.5,
+          "n": 13,
+          "mean_conf": 0.4681209325790405,
+          "accuracy": 0.6153846153846154,
+          "gap": 0.1472636828055749
+        },
+        {
+          "bin_lo": 0.5,
+          "bin_hi": 0.6000000000000001,
+          "n": 44,
+          "mean_conf": 0.5534930229187012,
+          "accuracy": 0.5909090909090909,
+          "gap": 0.03741606799038977
+        },
+        {
+          "bin_lo": 0.6000000000000001,
+          "bin_hi": 0.7000000000000001,
+          "n": 37,
+          "mean_conf": 0.6582427024841309,
+          "accuracy": 0.5945945945945946,
+          "gap": -0.06364810788953623
+        },
+        {
+          "bin_lo": 0.7000000000000001,
+          "bin_hi": 0.8,
+          "n": 55,
+          "mean_conf": 0.7533896565437317,
+          "accuracy": 0.6909090909090909,
+          "gap": -0.06248056563464077
+        },
+        {
+          "bin_lo": 0.8,
+          "bin_hi": 0.9,
+          "n": 102,
+          "mean_conf": 0.8591930866241455,
+          "accuracy": 0.8137254901960784,
+          "gap": -0.04546759642806708
+        },
+        {
+          "bin_lo": 0.9,
+          "bin_hi": 1.0,
+          "n": 310,
+          "mean_conf": 0.9500058889389038,
+          "accuracy": 0.9516129032258065,
+          "gap": 0.001607014286902686
+        }
+      ]
+    },
+    "C": {
+      "label": "ConvNeXt-Tiny",
+      "n_bins": 10,
+      "ece": 0.04968680327972478,
+      "mce": 0.36403438448905945,
+      "mean_confidence": 0.9128894209861755,
+      "accuracy": 0.8867256637168142,
+      "overconfidence": 0.026163757269361376,
+      "bins": [
+        {
+          "bin_lo": 0.0,
+          "bin_hi": 0.1,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.1,
+          "bin_hi": 0.2,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.2,
+          "bin_hi": 0.30000000000000004,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.30000000000000004,
+          "bin_hi": 0.4,
+          "n": 1,
+          "mean_conf": 0.36403438448905945,
+          "accuracy": 0.0,
+          "gap": -0.36403438448905945
+        },
+        {
+          "bin_lo": 0.4,
+          "bin_hi": 0.5,
+          "n": 4,
+          "mean_conf": 0.45329922437667847,
+          "accuracy": 0.75,
+          "gap": 0.29670077562332153
+        },
+        {
+          "bin_lo": 0.5,
+          "bin_hi": 0.6000000000000001,
+          "n": 13,
+          "mean_conf": 0.554952085018158,
+          "accuracy": 0.5384615384615384,
+          "gap": -0.016490546556619523
+        },
+        {
+          "bin_lo": 0.6000000000000001,
+          "bin_hi": 0.7000000000000001,
+          "n": 7,
+          "mean_conf": 0.6507920026779175,
+          "accuracy": 0.42857142857142855,
+          "gap": -0.22222057410648893
+        },
+        {
+          "bin_lo": 0.7000000000000001,
+          "bin_hi": 0.8,
+          "n": 12,
+          "mean_conf": 0.7463666796684265,
+          "accuracy": 0.8333333333333334,
+          "gap": 0.08696665366490686
+        },
+        {
+          "bin_lo": 0.8,
+          "bin_hi": 0.9,
+          "n": 108,
+          "mean_conf": 0.8757882118225098,
+          "accuracy": 0.9166666666666666,
+          "gap": 0.040878454844156864
+        },
+        {
+          "bin_lo": 0.9,
+          "bin_hi": 1.0,
+          "n": 420,
+          "mean_conf": 0.948318600654602,
+          "accuracy": 0.9023809523809524,
+          "gap": -0.045937648273649656
+        }
+      ]
+    },
+    "S": {
+      "label": "Swin-Tiny",
+      "n_bins": 10,
+      "ece": 0.01859289908831097,
+      "mce": 0.6062705218791962,
+      "mean_confidence": 0.8673669099807739,
+      "accuracy": 0.856637168141593,
+      "overconfidence": 0.010729741839180962,
+      "bins": [
+        {
+          "bin_lo": 0.0,
+          "bin_hi": 0.1,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.1,
+          "bin_hi": 0.2,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.2,
+          "bin_hi": 0.30000000000000004,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.30000000000000004,
+          "bin_hi": 0.4,
+          "n": 1,
+          "mean_conf": 0.39372947812080383,
+          "accuracy": 1.0,
+          "gap": 0.6062705218791962
+        },
+        {
+          "bin_lo": 0.4,
+          "bin_hi": 0.5,
+          "n": 22,
+          "mean_conf": 0.45936548709869385,
+          "accuracy": 0.5,
+          "gap": 0.04063451290130615
+        },
+        {
+          "bin_lo": 0.5,
+          "bin_hi": 0.6000000000000001,
+          "n": 28,
+          "mean_conf": 0.550571620464325,
+          "accuracy": 0.5357142857142857,
+          "gap": -0.014857334750039253
+        },
+        {
+          "bin_lo": 0.6000000000000001,
+          "bin_hi": 0.7000000000000001,
+          "n": 19,
+          "mean_conf": 0.6449847221374512,
+          "accuracy": 0.631578947368421,
+          "gap": -0.013405774769030154
+        },
+        {
+          "bin_lo": 0.7000000000000001,
+          "bin_hi": 0.8,
+          "n": 36,
+          "mean_conf": 0.7476146221160889,
+          "accuracy": 0.6666666666666666,
+          "gap": -0.08094795544942224
+        },
+        {
+          "bin_lo": 0.8,
+          "bin_hi": 0.9,
+          "n": 102,
+          "mean_conf": 0.8597923517227173,
+          "accuracy": 0.8137254901960784,
+          "gap": -0.04606686152663886
+        },
+        {
+          "bin_lo": 0.9,
+          "bin_hi": 1.0,
+          "n": 357,
+          "mean_conf": 0.9447588324546814,
+          "accuracy": 0.9467787114845938,
+          "gap": 0.002019879029912408
+        }
+      ]
+    },
+    "EC": {
+      "label": "EfficientNet + ConvNeXt",
+      "n_bins": 10,
+      "ece": 0.037976798388810316,
+      "mce": 0.6325854659080505,
+      "mean_confidence": 0.8561360239982605,
+      "accuracy": 0.8814159292035398,
+      "overconfidence": -0.02527990520527934,
+      "bins": [
+        {
+          "bin_lo": 0.0,
+          "bin_hi": 0.1,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.1,
+          "bin_hi": 0.2,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.2,
+          "bin_hi": 0.30000000000000004,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.30000000000000004,
+          "bin_hi": 0.4,
+          "n": 1,
+          "mean_conf": 0.36741453409194946,
+          "accuracy": 1.0,
+          "gap": 0.6325854659080505
+        },
+        {
+          "bin_lo": 0.4,
+          "bin_hi": 0.5,
+          "n": 21,
+          "mean_conf": 0.47749248147010803,
+          "accuracy": 0.47619047619047616,
+          "gap": -0.0013020052796318682
+        },
+        {
+          "bin_lo": 0.5,
+          "bin_hi": 0.6000000000000001,
+          "n": 35,
+          "mean_conf": 0.5516639351844788,
+          "accuracy": 0.6571428571428571,
+          "gap": 0.10547892195837838
+        },
+        {
+          "bin_lo": 0.6000000000000001,
+          "bin_hi": 0.7000000000000001,
+          "n": 22,
+          "mean_conf": 0.657210648059845,
+          "accuracy": 0.7272727272727273,
+          "gap": 0.07006207921288232
+        },
+        {
+          "bin_lo": 0.7000000000000001,
+          "bin_hi": 0.8,
+          "n": 58,
+          "mean_conf": 0.7486501932144165,
+          "accuracy": 0.8448275862068966,
+          "gap": 0.09617739299248007
+        },
+        {
+          "bin_lo": 0.8,
+          "bin_hi": 0.9,
+          "n": 94,
+          "mean_conf": 0.8570162057876587,
+          "accuracy": 0.8191489361702128,
+          "gap": -0.03786726961744591
+        },
+        {
+          "bin_lo": 0.9,
+          "bin_hi": 1.0,
+          "n": 334,
+          "mean_conf": 0.9448322653770447,
+          "accuracy": 0.9640718562874252,
+          "gap": 0.019239590910380522
+        }
+      ]
+    },
+    "ES": {
+      "label": "EfficientNet + Swin",
+      "n_bins": 10,
+      "ece": 0.044654995519503055,
+      "mce": 0.6045111119747162,
+      "mean_confidence": 0.8407571911811829,
+      "accuracy": 0.8584070796460177,
+      "overconfidence": -0.01764988846483484,
+      "bins": [
+        {
+          "bin_lo": 0.0,
+          "bin_hi": 0.1,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.1,
+          "bin_hi": 0.2,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.2,
+          "bin_hi": 0.30000000000000004,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.30000000000000004,
+          "bin_hi": 0.4,
+          "n": 1,
+          "mean_conf": 0.3954888880252838,
+          "accuracy": 1.0,
+          "gap": 0.6045111119747162
+        },
+        {
+          "bin_lo": 0.4,
+          "bin_hi": 0.5,
+          "n": 28,
+          "mean_conf": 0.4707677662372589,
+          "accuracy": 0.42857142857142855,
+          "gap": -0.042196337665830363
+        },
+        {
+          "bin_lo": 0.5,
+          "bin_hi": 0.6000000000000001,
+          "n": 34,
+          "mean_conf": 0.5463243722915649,
+          "accuracy": 0.6764705882352942,
+          "gap": 0.13014621594372922
+        },
+        {
+          "bin_lo": 0.6000000000000001,
+          "bin_hi": 0.7000000000000001,
+          "n": 39,
+          "mean_conf": 0.656899094581604,
+          "accuracy": 0.5641025641025641,
+          "gap": -0.09279653047903991
+        },
+        {
+          "bin_lo": 0.7000000000000001,
+          "bin_hi": 0.8,
+          "n": 61,
+          "mean_conf": 0.7466880083084106,
+          "accuracy": 0.7868852459016393,
+          "gap": 0.040197237593228685
+        },
+        {
+          "bin_lo": 0.8,
+          "bin_hi": 0.9,
+          "n": 93,
+          "mean_conf": 0.8583694696426392,
+          "accuracy": 0.8279569892473119,
+          "gap": -0.03041248039532729
+        },
+        {
+          "bin_lo": 0.9,
+          "bin_hi": 1.0,
+          "n": 309,
+          "mean_conf": 0.9445966482162476,
+          "accuracy": 0.9773462783171522,
+          "gap": 0.03274963010090459
+        }
+      ]
+    },
+    "CS": {
+      "label": "ConvNeXt + Swin",
+      "n_bins": 10,
+      "ece": 0.020896930240951787,
+      "mce": 0.2995826105276743,
+      "mean_confidence": 0.8743975162506104,
+      "accuracy": 0.8831858407079646,
+      "overconfidence": -0.008788324457354224,
+      "bins": [
+        {
+          "bin_lo": 0.0,
+          "bin_hi": 0.1,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.1,
+          "bin_hi": 0.2,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.2,
+          "bin_hi": 0.30000000000000004,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.30000000000000004,
+          "bin_hi": 0.4,
+          "n": 3,
+          "mean_conf": 0.3670840561389923,
+          "accuracy": 0.6666666666666666,
+          "gap": 0.2995826105276743
+        },
+        {
+          "bin_lo": 0.4,
+          "bin_hi": 0.5,
+          "n": 14,
+          "mean_conf": 0.4747641682624817,
+          "accuracy": 0.35714285714285715,
+          "gap": -0.11762131111962454
+        },
+        {
+          "bin_lo": 0.5,
+          "bin_hi": 0.6000000000000001,
+          "n": 23,
+          "mean_conf": 0.55458003282547,
+          "accuracy": 0.6521739130434783,
+          "gap": 0.0975938802180083
+        },
+        {
+          "bin_lo": 0.6000000000000001,
+          "bin_hi": 0.7000000000000001,
+          "n": 26,
+          "mean_conf": 0.66627436876297,
+          "accuracy": 0.8076923076923077,
+          "gap": 0.14141793892933774
+        },
+        {
+          "bin_lo": 0.7000000000000001,
+          "bin_hi": 0.8,
+          "n": 41,
+          "mean_conf": 0.7492831945419312,
+          "accuracy": 0.7560975609756098,
+          "gap": 0.006814366433678609
+        },
+        {
+          "bin_lo": 0.8,
+          "bin_hi": 0.9,
+          "n": 101,
+          "mean_conf": 0.8690494298934937,
+          "accuracy": 0.8514851485148515,
+          "gap": -0.017564281378642188
+        },
+        {
+          "bin_lo": 0.9,
+          "bin_hi": 1.0,
+          "n": 357,
+          "mean_conf": 0.9459764361381531,
+          "accuracy": 0.9495798319327731,
+          "gap": 0.00360339579461999
+        }
+      ]
+    },
+    "ECS": {
+      "label": "EfficientNet + ConvNeXt + Swin",
+      "n_bins": 10,
+      "ece": 0.03515587755009136,
+      "mce": 0.36013004183769226,
+      "mean_confidence": 0.8515573740005493,
+      "accuracy": 0.8778761061946903,
+      "overconfidence": -0.026318732194140937,
+      "bins": [
+        {
+          "bin_lo": 0.0,
+          "bin_hi": 0.1,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.1,
+          "bin_hi": 0.2,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.2,
+          "bin_hi": 0.30000000000000004,
+          "n": 0,
+          "mean_conf": null,
+          "accuracy": null,
+          "gap": null
+        },
+        {
+          "bin_lo": 0.30000000000000004,
+          "bin_hi": 0.4,
+          "n": 3,
+          "mean_conf": 0.36013004183769226,
+          "accuracy": 0.0,
+          "gap": -0.36013004183769226
+        },
+        {
+          "bin_lo": 0.4,
+          "bin_hi": 0.5,
+          "n": 16,
+          "mean_conf": 0.4525691568851471,
+          "accuracy": 0.5,
+          "gap": 0.047430843114852905
+        },
+        {
+          "bin_lo": 0.5,
+          "bin_hi": 0.6000000000000001,
+          "n": 30,
+          "mean_conf": 0.5492451786994934,
+          "accuracy": 0.6,
+          "gap": 0.05075482130050657
+        },
+        {
+          "bin_lo": 0.6000000000000001,
+          "bin_hi": 0.7000000000000001,
+          "n": 41,
+          "mean_conf": 0.6498926281929016,
+          "accuracy": 0.7317073170731707,
+          "gap": 0.0818146888802691
+        },
+        {
+          "bin_lo": 0.7000000000000001,
+          "bin_hi": 0.8,
+          "n": 60,
+          "mean_conf": 0.7646417617797852,
+          "accuracy": 0.8,
+          "gap": 0.03535823822021489
+        },
+        {
+          "bin_lo": 0.8,
+          "bin_hi": 0.9,
+          "n": 97,
+          "mean_conf": 0.8599599599838257,
+          "accuracy": 0.845360824742268,
+          "gap": -0.014599135241557648
+        },
+        {
+          "bin_lo": 0.9,
+          "bin_hi": 1.0,
+          "n": 318,
+          "mean_conf": 0.9446253776550293,
+          "accuracy": 0.9748427672955975,
+          "gap": 0.030217389640568193
+        }
+      ]
+    }
+  },
+  "temperature_scaling": {
+    "T": 0.8359846315187336,
+    "fitted_on": "val",
+    "applied_to": "test",
+    "val_nll_at_T": 0.3681687588934669,
+    "val_nll_at_T1": 0.37953200936317444,
+    "test_ece_before": 0.03515587755009136,
+    "test_ece_after": 0.021600526518526356,
+    "test_mce_before": 0.36013004183769226,
+    "test_mce_after": 0.35606223344802856,
+    "test_accuracy_unchanged": 0.8778761061946903,
+    "bins_after": [
+      {
+        "bin_lo": 0.0,
+        "bin_hi": 0.1,
+        "n": 0,
+        "mean_conf": null,
+        "accuracy": null,
+        "gap": null
+      },
+      {
+        "bin_lo": 0.1,
+        "bin_hi": 0.2,
+        "n": 0,
+        "mean_conf": null,
+        "accuracy": null,
+        "gap": null
+      },
+      {
+        "bin_lo": 0.2,
+        "bin_hi": 0.30000000000000004,
+        "n": 0,
+        "mean_conf": null,
+        "accuracy": null,
+        "gap": null
+      },
+      {
+        "bin_lo": 0.30000000000000004,
+        "bin_hi": 0.4,
+        "n": 2,
+        "mean_conf": 0.35606223344802856,
+        "accuracy": 0.0,
+        "gap": -0.35606223344802856
+      },
+      {
+        "bin_lo": 0.4,
+        "bin_hi": 0.5,
+        "n": 14,
+        "mean_conf": 0.46662434935569763,
+        "accuracy": 0.5,
+        "gap": 0.03337565064430237
+      },
+      {
+        "bin_lo": 0.5,
+        "bin_hi": 0.6000000000000001,
+        "n": 20,
+        "mean_conf": 0.5565584301948547,
+        "accuracy": 0.55,
+        "gap": -0.006558430194854692
+      },
+      {
+        "bin_lo": 0.6000000000000001,
+        "bin_hi": 0.7000000000000001,
+        "n": 31,
+        "mean_conf": 0.6553454399108887,
+        "accuracy": 0.6774193548387096,
+        "gap": 0.02207391492782096
+      },
+      {
+        "bin_lo": 0.7000000000000001,
+        "bin_hi": 0.8,
+        "n": 32,
+        "mean_conf": 0.7507909536361694,
+        "accuracy": 0.78125,
+        "gap": 0.030459046363830566
+      },
+      {
+        "bin_lo": 0.8,
+        "bin_hi": 0.9,
+        "n": 80,
+        "mean_conf": 0.8550699949264526,
+        "accuracy": 0.8,
+        "gap": -0.05506999492645259
+      },
+      {
+        "bin_lo": 0.9,
+        "bin_hi": 1.0,
+        "n": 386,
+        "mean_conf": 0.9658786654472351,
+        "accuracy": 0.9533678756476683,
+        "gap": -0.012510789799566768
+      }
+    ],
+    "note": "One scalar fitted on validation NLL. Cannot change argmax, so accuracy, macro-AUC and MCC are identical before and after; only confidence is rescaled."
+  },
+  "triage_threshold_reach": {
+    "threshold": 0.4,
+    "n_below_threshold": 3,
+    "pct_below_threshold": 0.5309734513274336,
+    "n_melanoma_top1": 124,
+    "n_melanoma_escalated": 123,
+    "note": "Reachability of the severity_triage.py thresholds on the real test set, using the equal-weight ensemble confidence."
+  },
+  "bootstrap": {
+    "n_resamples": 2000,
+    "seed": 42,
+    "method": "percentile",
+    "paired": "same resample indices across configs"
+  }
+}
