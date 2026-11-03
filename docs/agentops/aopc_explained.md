@@ -148,6 +148,15 @@ Concrete, from the cached rows for `ISIC_0058222.jpg` (BCC, predicted BCC at 0.9
 "heatmap" is noise; it has zero localisation content by construction. It wins because it
 is the most destructive perturbation, not because it found anything.
 
+> **Read the table as one draw, not as the number.** The rows above are seed 0. Each
+> random baseline is drawn `--random-seeds 3` times per image, and a single draw is
+> noisy: on this same image `random7x7` scores 0.187 at seed 0 but 0.108 at seed 1.
+> The analysis therefore **averages a baseline's seeds first**, producing one value per
+> (image, method) before anything is paired or tested. That is why a per-seed row can
+> never be quoted on its own, and why the win-rate and Wilcoxon figures are computed on
+> seed-averaged values.
+
+
 The lesson generalises beyond this repo:
 
 > A high AOPC can be earned two different ways — by locating important pixels, or by
