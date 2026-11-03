@@ -266,6 +266,77 @@ clean set is 43.4%, and whole-set firing is 59.3%.
 
 ---
 
+## F7 — Grad-CAM is measurably faithful on these models, and the choice of random baseline decides whether you can tell
+
+**Status: CONFIRMED (n=150, 30 per class, all five classes, paired tests).**
+**Logged 2026-11-03. Source: `.nb1out/xai_aopc_raw.csv`, `.nb1out/xai_aopc_analysis.md`, `paper/experiments/07_xai_aopc_gradcam_vs_random.py`, `docs/agentops/aopc_explained.md`.**
+
+A heatmap always looks plausible, so the explanation layer had never been tested
+— Grad-CAM is on `/predict` for latency and output-shape reasons, not because it
+was shown to explain better. This is the first measurement.
+
+Deletion/AOPC on the de-duplicated 565-image clean test set, stratified 30 per
+class, each image scored by Grad-CAM and by two random baselines (3 seeds each,
+averaged before pairing):
+
+| method | mean AOPC | 95% CI | median |
+|---|---|---|---|
+| **gradcam** | **0.3099** | [0.2831, 0.3376] | 0.2720 |
+| random7x7 (structure-matched) | 0.1834 | [0.1678, 0.1994] | 0.1612 |
+| randompixel (explains nothing) | 0.4887 | [0.4576, 0.5196] | 0.4837 |
+
+**gradcam − random7x7 = +0.1266** [+0.1059, +0.1478], Wilcoxon **p < 0.0001**,
+**127/150 wins (84.7%)**, Cohen's dz **0.967**, rank-biserial +0.693. Significant
+in all five per-class rows (p ≤ 0.0012), and it holds on the 22 images the
+ensemble classified **wrong** (+0.1479, p=0.0006) as well as the 128 it got right
+(+0.1229) — faithfulness is a property of the explanation, not of being correct.
+
+**The methodological point is the publishable part, and it is a trap in the
+metric itself.** `randompixel` — i.i.d. noise at full 224×224 resolution — posts
+the **highest AOPC of all three arms** while having, by construction, zero
+localisation content. It "wins" because scattering single-pixel deletions across
+the frame shreds local texture everywhere at once and pushes the image far off
+the training distribution, so p(class) collapses *regardless of where* the
+deletions land. A high `randompixel` AOPC measures the models' fragility to
+high-frequency corruption, not explanation quality.
+
+Only `random7x7` — uniform noise on Grad-CAM's **native 7×7 grid**, upsampled
+through the same bilinear call — produces deletions matched in spatial structure
+to a real Grad-CAM map, so the sole remaining difference is whether the blobs
+land on informative pixels. **An AOPC comparison against an unmatched random
+baseline can therefore report the opposite of the truth**, and a paper reporting
+"our method beats random on AOPC" has said nothing until it states which random.
+This is worth a paragraph in its own right: the deletion metric is not
+baseline-agnostic.
+
+**What it settles and what it does not.** Grad-CAM beats chance on these models,
+so the heatmaps are not decorative — which also shifts the unvalidated
+`XAISummary` bridge (gap 7, `boundary_alignment` "poor" 9/15 and never "good")
+toward *mis-thresholded bridge* rather than *model ignores the lesion*. It says
+**nothing** about SHAP: that comparison is still unrun, so the `/predict` choice
+remains a latency decision held under review, not a validated one. And AOPC asks
+whether the map found pixels **the model used**, not whether those pixels are
+**the lesion** — that needs annotated masks.
+
+**A bug found by reading the table instead of the headline.** The first run
+reported p(class) = 2.6055 at 0% deletion, which is impossible. Cause: the script
+used the raw `(1,1,1)` ensemble weights from `configs/models.yaml`, while
+`SkinEnsemble` normalises them to (1/3,1/3,1/3), so every probability was 3× too
+large. Because `aopc()` is a linear functional of the deletion curve (verified on
+all 1050 rows), the constant factor rescaled every value identically: win count
+127/150 and dz 0.967 are **bit-identical** before and after, and only the
+magnitudes were wrong. The script now normalises and asserts that the probability
+vector sums to 1, so the same class of bug fails loudly rather than producing
+plausible-looking rankings. Worth reporting as a reminder that a scale-invariant
+statistic can hide a scale bug indefinitely.
+
+**Reproduction note:** the local 2-core CPU managed ~20 s per image and died
+three times before completing two of five classes; the T4 ran the full 150 at
+0.05 s/image. The per-class 30 is adequate for the paired test but each per-class
+row is individually underpowered.
+
+---
+
 ## F2 — pHash de-duplication removes 22.3% of the test set; measured inflation is small
 
 **Status: CONFIRMED (descriptive — a measured count, not an inferential claim).**
