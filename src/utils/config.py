@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import yaml
 from pydantic import BaseModel
@@ -15,6 +15,7 @@ _ROOT = Path(__file__).parent.parent.parent
 _AGENTS_YAML = _ROOT / "configs" / "agents.yaml"
 _MODELS_YAML = _ROOT / "configs" / "models.yaml"
 _PREPROCESSING_YAML = _ROOT / "configs" / "preprocessing.yaml"
+_OBSERVABILITY_YAML = _ROOT / "configs" / "observability.yaml"
 
 
 class SummarizerConfig(BaseModel):
@@ -78,6 +79,20 @@ def get_settings() -> Settings:
 @lru_cache(maxsize=1)
 def get_model_config() -> ModelConfig:
     return ModelConfig(**yaml.safe_load(_MODELS_YAML.read_text()))
+
+
+class ObservabilityConfig(BaseModel):
+    # Default OFF: tracing is opt-in, the observability extra may not be installed, and
+    # a clinical API must boot without a telemetry stack. See configs/observability.yaml
+    # for the full reasoning. Literal rather than str so an unknown exporter fails at
+    # load time with a clear error, not at configure_tracing() on the request path.
+    exporter: Literal["none", "console", "otlp"] = "none"
+    service_name: str = "skinsure"
+
+
+@lru_cache(maxsize=1)
+def get_observability_config() -> ObservabilityConfig:
+    return ObservabilityConfig(**yaml.safe_load(_OBSERVABILITY_YAML.read_text()))
 
 
 def get_checkpoint_paths() -> CheckpointPaths:

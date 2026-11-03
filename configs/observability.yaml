@@ -1,0 +1,86 @@
+# Tracing configuration (src/observability/tracing.py, src/utils/config.py).
+#
+# Loaded by get_observability_config(); the `exporter` value is handed straight to
+# configure_tracing(exporter, service_name=...).
+
+# Which span exporter to build: none | console | otlp.
+#
+# The default is "none", i.e. THE REPO SHIPS WITH TRACING OFF, for three reasons:
+#   1. Tracing is opt-in. A span is only worth emitting when someone is reading it;
+#      an unread exporter is pure latency and, on the OTLP path, outbound traffic
+#      from a clinical service to a third party for no benefit.
+#   2. The `observability` extra may not be installed. It is an optional dependency
+#      group on purpose (see pyproject.toml), so on a default `pip install -e .` the
+#      OpenTelemetry SDK is simply absent. configure_tracing() already degrades to a
+#      warning plus None in that case, but defaulting to "none" means the common
+#      install does not log a warning on every boot about a stack nobody asked for.
+#   3. A clinical API must boot without a telemetry stack. If the default were "otlp"
+#      then a missing collector, a wrong endpoint or an expired key would become a
+#      startup concern on the path between a patient's photo and a screening result.
+#      Observability is a diagnostic aid; it must never be a dependency of serving.
+#
+# Flip to "console" for local development (spans print to stdout, no network), or to
+# "otlp" when a collector or Langfuse project is actually set up - see below.
+exporter: none
+
+# resource attribute service.name - how this service is labelled in the trace backend.
+service_name: skinsure
+
+# --- OTLP endpoint and credentials: environment only ---------------------------------
+#
+# NO backend URL and NO credential is ever written into this repo. When exporter is
+# "otlp", OTLPSpanExporter() is constructed with no arguments, so it reads the standard
+# OpenTelemetry environment variables:
+#
+#   OTEL_EXPORTER_OTLP_ENDPOINT   base URL of the collector (the exporter appends
+#                                 /v1/traces unless OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+#                                 is set, which is used verbatim)
+#   OTEL_EXPORTER_OTLP_HEADERS    comma-separated key=value pairs, e.g. auth headers
+#
+# That keeps secrets in .env locally (gitignored) and in a secret manager in the cloud,
+# matching the "secrets never touch git" invariant in CLAUDE.md. It also means switching
+# backends is a deployment change, not a code change.
+
+# --- Langfuse Cloud: the specifics that cost an afternoon to rediscover ---------------
+#
+# Langfuse speaks OTLP, so it needs no Langfuse SDK - point the standard env vars at it.
+#
+#   Endpoint (region-specific, pick one):
+#     EU   https://cloud.langfuse.com/api/public/otel
+#     US   https://us.cloud.langfuse.com/api/public/otel
+#
+#   Auth is HTTP Basic, not a bearer token:
+#     Authorization=Basic <base64(public_key:secret_key)>
+#
+#   Transport: Langfuse accepts OTLP/HTTP protobuf and does NOT support gRPC. That is
+#   why pyproject pins opentelemetry-exporter-otlp-proto-http and why tracing.py imports
+#   from ...otlp.proto.http.trace_exporter. Pointing a gRPC exporter at the URL above
+#   fails in a way that looks like a network problem rather than a protocol mismatch.
+#
+#   CRITICAL - send this header:
+#     x-langfuse-ingestion-version=4
+#   Without it, directly exported OTel spans can take UP TO 10 MINUTES to appear in the
+#   UI. That delay reads exactly like "tracing is broken": the app logs a successful
+#   export, the dashboard stays empty, and the obvious next move is to go debug the
+#   exporter that is in fact working fine. Set the header and spans show up promptly.
+#
+# So a working Langfuse setup is two env vars, no code change:
+#   OTEL_EXPORTER_OTLP_ENDPOINT=https://cloud.langfuse.com/api/public/otel
+#   OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <b64>,x-langfuse-ingestion-version=4
+#
+# --- WARNING: Langfuse Cloud free / Hobby tier and patient-adjacent data --------------
+#
+# The free/Hobby tier has NO data-retention management and NO server-side masking; both
+# are paid features.
+#   * "30 days" on the Hobby tier is data *ACCESS*, not enforced deletion - older traces
+#     stop being visible to you, which is not the same as being removed. Do not treat it
+#     as a retention policy.
+#   * Server-side masking (rules applied at ingestion, before storage) is not available,
+#     so anything a span carries is stored as sent. There is no second line of defence.
+#
+# For telemetry sitting next to patient data that matters, and it is a further reason
+# this repo never sends prompt or completion content: redaction happens in-process
+# (src/observability/redaction.py) and the gen_ai.*.messages opt-in content attributes
+# are never set at all (see the tracing.py module docstring). The span vocabulary is
+# deliberately decisions and token counts, not text - so a trace landing in an untiered
+# cloud project is a far smaller problem than it would otherwise be.
