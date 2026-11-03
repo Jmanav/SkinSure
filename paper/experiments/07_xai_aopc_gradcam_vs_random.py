@@ -59,8 +59,15 @@ RANDOM_SEEDS = 3           # independent draws per random baseline, averaged bef
 SEED         = 42          # global seed (paper/experiments convention)
 
 CLASSES = ['Basal_Cell_Carcinoma', 'Eczema', 'Keratosis', 'Melanoma', 'Tinea']
-# Equal weights, from configs/models.yaml. Order matches the backbone dict below.
-ENSEMBLE_WEIGHTS = (1.0, 1.0, 1.0)
+# Equal weights from configs/models.yaml, NORMALISED to sum to 1.
+# SkinEnsemble does `w / sum(weights)` in its constructor, so the raw (1, 1, 1) in the
+# config means (1/3, 1/3, 1/3) at inference. Using the raw values here instead makes
+# every "probability" 3x too large -- p(class) came out at 2.6 in the first Kaggle run.
+# Argmax and AOPC are both scale-invariant/linear, so that bug changed no ranking, no
+# win count and no p-value, only the absolute magnitudes. Normalise anyway: a number
+# printed as a probability must be one.
+_RAW_WEIGHTS = (1.0, 1.0, 1.0)
+ENSEMBLE_WEIGHTS = tuple(w / sum(_RAW_WEIGHTS) for w in _RAW_WEIGHTS)
 DELETION_PERCENTS = (0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100)
 CAM_GRID = 7               # Grad-CAM's native resolution at 224px input
 
@@ -471,6 +478,12 @@ t_start = time.time()
 for i, (path, true_cls) in enumerate(FILES, 1):
     tensor = preprocess_image(Image.open(path).convert('RGB'))
     base = ensemble_probs(tensor)
+    # Guard the scale bug that produced p(class)=2.6 in the first run: a weighted
+    # average of softmaxes must sum to 1 if the weights do.
+    if i == 1 and not (0.99 <= float(base.sum()) <= 1.01):
+        raise RuntimeError(
+            f'ensemble probabilities sum to {base.sum():.4f}, expected 1.0 -- '
+            f'ENSEMBLE_WEIGHTS are probably not normalised (got {ENSEMBLE_WEIGHTS})')
     class_idx = int(np.argmax(base))
     pred_cls = CLASSES[class_idx]
     pred_conf = float(base[class_idx])
