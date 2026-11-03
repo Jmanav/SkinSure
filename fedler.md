@@ -450,6 +450,44 @@ aggressive," so a noise-free baseline needs to exist first.
 - `data/splits/` — canonical splits: `global_test.csv`, `trainable_pool.csv`, and hospital shards under `shards/iid/` and `shards/noniid/` (3 CSVs each).
 - `flwr` added to `pyproject.toml` under `[project.optional-dependencies].federated`.
 - **Dataset:** 6,655 images across 5 target classes (from the 9-class IPD dataset). Per-class: Melanoma 1,587, Eczema 1,365, Keratosis 1,294, BCC 1,208, Tinea 1,201. Trainable pool: 5,658; Global test: 997.
+
+  > **UNRECONCILED — fix before the Phase 3/4 re-run (found 2026-11-03).** The
+  > 5,658 / 997 figures above are the correct 85/15 split of the full 6,655-image
+  > corpus, but **they are not what the manifest CSVs on disk contain.**
+  > `data/splits/global_test.csv` holds **904** rows and `trainable_pool.csv` holds
+  > **5,131** (total **6,035**), and the shard sets sum to 5,131 in both `iid/` and
+  > `noniid/`. The manifests are internally consistent and every path in them still
+  > resolves, so they are a strict subset: **620 images on disk appear in no
+  > manifest, all of them under `train/`, in only three classes — Eczema 189,
+  > Keratosis 151, Melanoma 280** (BCC and Tinea are short by exactly zero).
+  >
+  > Verified mechanism: `scripts/make_splits.py` uses
+  > `n_test = max(1, int(len(items) * 0.15))` per class. Applied to the *manifest*
+  > per-class totals it reproduces the observed test counts exactly
+  > (181/176/171/196/180 = 904); applied to the *true disk* totals it reproduces
+  > 997 / 5,658 exactly. Both pairs are therefore valid splits — of two different
+  > corpora, differing by exactly those 620 images. The most likely cause is that
+  > the manifests were generated against an earlier snapshot of the IPD tree,
+  > before those three classes were topped up, and were never regenerated.
+  >
+  > **Why this matters for the numbers below:** `scripts/run_fl_simulation.py` and
+  > `scripts/train_baseline.py` both *default* to these exact CSVs
+  > (`--test-set data/splits/global_test.csv`, `--pool data/splits/trainable_pool.csv`),
+  > so unless they were run with explicit overrides, every FL and baseline metric in
+  > this file was measured on the **904-image** test set and the 5,131-image pool,
+  > not the 997 / 5,658 stated. The metrics themselves are not being changed here —
+  > they are a real measurement of *something* — but the denominator they are
+  > attached to is in doubt, so **do not quote "997-image global test set" as
+  > established until this is resolved.**
+  >
+  > **Resolution, alongside the `num_batches_tracked` buffer bug (Phase 4 notes):**
+  > re-run `scripts/make_splits.py` against the current tree, confirm it emits
+  > 997 / 5,658, regenerate both shard sets, then re-measure. FL is parked pending a
+  > re-run on a different dataset anyway, so this costs nothing extra now and would
+  > silently corrupt the comparison if carried forward.
+  > `paper/FACT_CHECK.md` finding D9 already records the 904 / 5,131 / 6,035 totals
+  > and warns against citing them as the paper's manifests; the 620-image delta and
+  > the mechanism are the part that was missing.
 - 179 tests pass.
 
 ### Centralized baseline results (EfficientNet-B1, 30 epochs, early stopped at 28)
