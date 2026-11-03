@@ -312,11 +312,22 @@ baseline-agnostic.
 **What it settles and what it does not.** Grad-CAM beats chance on these models,
 so the heatmaps are not decorative — which also shifts the unvalidated
 `XAISummary` bridge (gap 7, `boundary_alignment` "poor" 9/15 and never "good")
-toward *mis-thresholded bridge* rather than *model ignores the lesion*. It says
-**nothing** about SHAP: that comparison is still unrun, so the `/predict` choice
-remains a latency decision held under review, not a validated one. And AOPC asks
-whether the map found pixels **the model used**, not whether those pixels are
-**the lesion** — that needs annotated masks.
+toward *mis-thresholded bridge* rather than *model ignores the lesion*.
+
+It says **nothing** about SHAP, and that comparison is **deferred by decision
+(2026-11-03)**, not pending: nothing in the product waits on it, SHAP is not
+installed, and `/explain` — the endpoint it would serve — does not exist. For the
+paper this means the `/predict` choice should be written up as *a latency and
+output-shape decision with a measured faithfulness floor*, which is defensible,
+rather than as a validated head-to-head, which it is not.
+
+**One scope limit, stated as a limitation and not as future work.** AOPC measures
+whether the map found pixels **the model used** — which is exactly the question
+faithfulness asks, so the result above is complete on its own terms. Whether
+those pixels are **the lesion** is a different question requiring annotated
+masks, which this project does not have and will not acquire. That limit belongs
+in the paper's limitations section verbatim; it is not a caveat that weakens the
+finding, because no AOPC study answers it.
 
 **A bug found by reading the table instead of the headline.** The first run
 reported p(class) = 2.6055 at 0% deletion, which is impossible. Cause: the script
