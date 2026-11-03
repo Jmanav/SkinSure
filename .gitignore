@@ -19,3 +19,6 @@ data/processed/
 #   *.npz   - regenerable per-backbone logit caches; the CSVs derived from them are the results
 .nb1out/ckpts/
 .nb1out/*.npz
+
+# A2 replay outputs (regenerable from the harness)
+data/eval/

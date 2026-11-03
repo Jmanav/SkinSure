@@ -1,0 +1,15 @@
+# Replay evaluation configuration — first pass (A2).
+#
+# Draws from the de-duplicated clean test set (565 images, 5 classes).
+# Manifest: C:\Users\Cipher\Downloads\test_clean_manifest.csv
+# Patient metadata is synthetic (src/eval/synthetic_patient.py, seed 42).
+
+sample:
+  per_class: 10          # 10 images per class = 50 total
+  seed: 42               # for stratified sampling and synthetic patients
+  spreading_rate: 0.15   # fraction of patients with is_spreading_rapidly=True
+
+# Output paths (relative to project root).
+output:
+  results: data/eval/replay_v1/results.jsonl
+  sample_manifest: data/eval/replay_v1/sample.csv
