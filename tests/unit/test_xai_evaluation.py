@@ -59,3 +59,68 @@ def test_full_deletion_blanks_everything():
     blank = _probs_fn(torch.zeros(1, 3, SIZE, SIZE))[0]
 
     assert curve[1] == pytest.approx(blank)
+
+
+class _FakeEnsemble:
+    """Minimal stand-in for SkinEnsemble: batch-capable backbones + weights + device.
+
+    `batched_deletion_curve` only needs `.backbones`, `.weights` and `.device`, so this
+    exercises it without loading the real checkpoints.
+    """
+
+    device = torch.device("cpu")
+
+    class _Backbone(torch.nn.Module):
+        def __init__(self, scale: float) -> None:
+            super().__init__()
+            self.scale = scale
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            # One logit pair per batch row, driven by the top-left quadrant's brightness
+            # so the result depends on which pixels were blanked.
+            quad = x[:, :, : SIZE // 2, : SIZE // 2].mean(dim=(1, 2, 3)) * self.scale
+            return torch.stack([quad, -quad], dim=1)
+
+    def __init__(self) -> None:
+        self._b = {"a": self._Backbone(4.0), "b": self._Backbone(2.0)}
+
+    @property
+    def backbones(self):
+        return self._b
+
+    @property
+    def weights(self):
+        return (0.6, 0.4)
+
+
+def test_batched_deletion_curve_matches_reference_implementation():
+    """The experiment script's batched scorer must equal the reference curve exactly.
+
+    `scripts/xai_aopc_experiment.py` stacks all deletion levels into one forward pass for
+    speed. That is only legitimate if it reproduces `deletion_curve`, so pin it here as
+    well as asserting it at runtime.
+    """
+    # `scripts/` is not an installed package (pyproject packages only src*/api*), so
+    # load the module by path rather than relying on rootdir being on sys.path.
+    import importlib.util
+    from pathlib import Path
+
+    script = Path(__file__).resolve().parents[2] / "scripts" / "xai_aopc_experiment.py"
+    spec = importlib.util.spec_from_file_location("xai_aopc_experiment", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    batched_deletion_curve = module.batched_deletion_curve
+
+    ensemble = _FakeEnsemble()
+
+    def probs_fn(image_tensor: torch.Tensor) -> np.ndarray:
+        total = 0.0
+        for model, weight in zip(ensemble.backbones.values(), ensemble.weights):
+            total = total + weight * torch.softmax(model(image_tensor), dim=1)
+        return total[0].detach().numpy()
+
+    for heat in (_heat(1.0), _heat(0.0), np.random.default_rng(0).random((SIZE, SIZE))):
+        reference = deletion_curve(probs_fn, _image(), heat, 0)
+        batched = batched_deletion_curve(ensemble, _image(), heat, 0)
+
+        assert batched == pytest.approx(reference, abs=1e-6)
