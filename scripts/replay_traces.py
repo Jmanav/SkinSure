@@ -19,6 +19,7 @@ import argparse
 import asyncio
 import csv
 import json
+import os
 import random
 import sys
 import time
@@ -254,7 +255,7 @@ async def main():
     else:
         load_dotenv(override=True)
         guard = SpendGuard.from_args(args)
-        real_client = anthropic.AsyncAnthropic()
+        real_client = anthropic.AsyncAnthropic(api_key=os.environ["SKINSURE_API_KEY"])
         client = _MeteredClient(real_client, guard)
         print(f"LIVE RUN: max ${args.max_usd:.4f}")
 

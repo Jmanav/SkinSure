@@ -132,7 +132,7 @@ SKINSURE_ALLOW_SPEND=1 ./venv/Scripts/python.exe scripts/summarize_one.py \
 ```
 
 `summarize_one.py` calls `load_dotenv(override=True)`, so `.env` wins over any
-`ANTHROPIC_API_KEY` already exported in the shell. `.env` is gitignored.
+`SKINSURE_API_KEY` already exported in the shell. `.env` is gitignored.
 
 ---
 

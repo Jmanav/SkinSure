@@ -106,7 +106,7 @@ Works today:
 # Real API; both the env var and the cap are required, and --case picks which
 # post-processing rule to exercise (disagreement / artifact / urgent).
 # summarize_one.py calls load_dotenv(override=True), so .env wins over any
-# ANTHROPIC_API_KEY already exported in the shell.
+# SKINSURE_API_KEY already exported in the shell.
 SKINSURE_ALLOW_SPEND=1 ./venv/Scripts/python.exe scripts/summarize_one.py --case disagreement --max-usd 0.05
 ./venv/Scripts/python.exe scripts/evaluate_xai.py <image_dir> [--heatmap-dir DIR]   # deletion/AOPC: Grad-CAM vs external heatmaps vs random
 

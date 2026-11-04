@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 
 import anthropic
+
+SKINSURE_API_KEY_ENV = "SKINSURE_API_KEY"
 
 from api.schemas.patient import PatientMetadata
 from api.schemas.predictions import (
@@ -122,7 +125,7 @@ async def summarize(
     `client` is injectable so tests can pass a fake instead of hitting the API.
     """
     cfg = get_settings().agents.summarizer
-    client = client or anthropic.AsyncAnthropic()  # reads ANTHROPIC_API_KEY from the environment
+    client = client or anthropic.AsyncAnthropic(api_key=os.environ[SKINSURE_API_KEY_ENV])
 
     # No `temperature`: non-default sampling params are a 400 on Haiku 5.5, and
     # `temperature` is rejected on every model from API version 2026-10-21.

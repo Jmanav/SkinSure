@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 
 import anthropic
 from dotenv import load_dotenv
@@ -68,8 +69,6 @@ async def main() -> None:
     guard = SpendGuard.from_args(args)  # refuses unless authorised and capped
 
     # override=True: the project's .env wins over whatever the shell already exports.
-    # Without it, a stale ANTHROPIC_API_KEY in the environment silently shadows .env
-    # and the run dies on a 401 that looks like a bad key in the file.
     load_dotenv(override=True)
 
     # Each case isolates one behaviour that the fake-client tests pin but cannot prove
@@ -128,7 +127,7 @@ async def main() -> None:
             artifact_flag=False,
         )
 
-    client = _MeteredClient(anthropic.AsyncAnthropic())
+    client = _MeteredClient(anthropic.AsyncAnthropic(api_key=os.environ["SKINSURE_API_KEY"]))
     summary = await summarize(predictions, patient, xai, client=client)
     print(f"case: {args.case}")
     print(summary.model_dump_json(indent=2))

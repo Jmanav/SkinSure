@@ -98,7 +98,7 @@ Status: ✅ done · 🟡 partial · ⬜ not started
    - Runtime: `torch`, `timm`, `pillow`, `numpy`, `opencv-python`, `anthropic`, `pydantic`, `pydantic-settings`, `pyyaml`, `fastapi`, `uvicorn`, `python-multipart`.
    - Dev: `pytest`, `ruff` (linter/formatter).
 2. Create a virtual environment and install the project in editable mode (`pip install -e .`).
-3. Create `.env.example` documenting required keys — at minimum `ANTHROPIC_API_KEY`. Create your real `.env` (and confirm it's in `.gitignore`).
+3. Create `.env.example` documenting required keys — at minimum `SKINSURE_API_KEY`. Create your real `.env` (and confirm it's in `.gitignore`).
 4. Confirm `configs/agents.yaml` loads via the existing `src/utils/config.py` → `get_settings()`.
 
 ### Definition of done
@@ -341,7 +341,7 @@ Status: ✅ done · 🟡 partial · ⬜ not started
 
 ### Definition of done
 - [ ] `docker build` produces an image.
-- [ ] `docker run` (with `ANTHROPIC_API_KEY` passed in) serves the API, and `GET /health` responds.
+- [ ] `docker run` (with `SKINSURE_API_KEY` passed in) serves the API, and `GET /health` responds.
 - [ ] `POST /predict` works against the containerized app.
 
 ⭐ **Pass secrets at runtime, never bake them into the image.** A committed/baked API key is a security incident.
@@ -358,13 +358,13 @@ Status: ✅ done · 🟡 partial · ⬜ not started
   - **AWS App Runner / ECS Fargate**.
   - **Azure Container Apps**.
 - **Container registries** — where your image lives before deploy (Artifact Registry / ECR / ACR).
-- **Secrets in the cloud** — Secret Manager (GCP) / Secrets Manager (AWS) / Key Vault (Azure) for `ANTHROPIC_API_KEY`.
+- **Secrets in the cloud** — Secret Manager (GCP) / Secrets Manager (AWS) / Key Vault (Azure) for `SKINSURE_API_KEY`.
 - **Health checks & cold starts** — why `GET /health` matters; loading a big model on cold start is slow.
 
 ### Build
 1. Push your Docker image to the cloud registry.
 2. Deploy the container (start with **Cloud Run** if undecided — least to learn).
-3. Wire `ANTHROPIC_API_KEY` via the cloud secret manager, not env files.
+3. Wire `SKINSURE_API_KEY` via the cloud secret manager, not env files.
 4. Configure the health check to hit `/health`.
 5. Set memory/CPU high enough to hold the ensemble in RAM (model loading is memory-hungry — undersizing causes silent OOM crashes).
 
