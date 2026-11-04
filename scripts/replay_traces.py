@@ -47,8 +47,8 @@ else:
     from _guard import SpendGuard, SpendLimitReached, add_spend_args
 
 CLASSES = ["Basal_Cell_Carcinoma", "Eczema", "Keratosis", "Melanoma", "Tinea"]
-MANIFEST = Path(r"C:\Users\Cipher\Downloads\test_clean_manifest.csv")
-TEST_ROOT = ROOT / "data" / "raw" / "IPD_Datasets_Final_Split" / "test"
+_DEFAULT_MANIFEST = Path(r"C:\Users\Cipher\Downloads\test_clean_manifest.csv")
+_DEFAULT_TEST_ROOT = ROOT / "data" / "raw" / "IPD_Datasets_Final_Split" / "test"
 
 
 # ---------------------------------------------------------------------------
@@ -57,15 +57,26 @@ TEST_ROOT = ROOT / "data" / "raw" / "IPD_Datasets_Final_Split" / "test"
 
 def build_file_list(
     per_class: int, seed: int,
+    *, test_root: Path | None = None, manifest: Path | None = None,
 ) -> tuple[list[tuple[Path, str]], str]:
+    test_root = test_root or _DEFAULT_TEST_ROOT
+    manifest = manifest or _DEFAULT_MANIFEST
+
     on_disk: dict[str, dict[str, Path]] = {}
     for cls in CLASSES:
-        on_disk[cls] = {p.name: p for p in (TEST_ROOT / cls).iterdir() if p.is_file()}
+        cls_dir = test_root / cls
+        if not cls_dir.is_dir():
+            raise FileNotFoundError(
+                f"Test class directory not found: {cls_dir}\n"
+                f"Pass --test-root pointing at the directory that contains "
+                f"per-class subdirectories ({', '.join(CLASSES)})."
+            )
+        on_disk[cls] = {p.name: p for p in cls_dir.iterdir() if p.is_file()}
 
     rows: list[tuple[Path, str]] = []
-    if MANIFEST.exists():
+    if manifest.exists():
         missing = 0
-        with MANIFEST.open(encoding="utf-8-sig") as fh:
+        with manifest.open(encoding="utf-8-sig") as fh:
             for rec in csv.DictReader(fh):
                 man = PurePosixPath(rec["path"])
                 cls, name = man.parent.name, man.name
@@ -179,6 +190,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", required=True, help="YAML config (e.g. configs/eval/replay_v1.yaml)")
     parser.add_argument("--dry-run", action="store_true", help="Use FakeClient instead of the real API")
     parser.add_argument("--resume", action="store_true", help="Skip images already in the output JSONL")
+    parser.add_argument("--test-root", type=Path, default=None,
+                        help="Directory containing per-class test subdirectories "
+                             "(overrides config and default)")
+    parser.add_argument("--manifest", type=Path, default=None,
+                        help="Clean manifest CSV (overrides default path)")
     add_spend_args(parser)
     return parser.parse_args()
 
@@ -221,7 +237,17 @@ async def main():
     seed = sample_cfg["seed"]
     spreading_rate = sample_cfg.get("spreading_rate", 0.15)
 
-    files, basis = build_file_list(per_class, seed)
+    # Resolve test_root: CLI > config > default
+    test_root = args.test_root
+    if test_root is None and "test_root" in sample_cfg:
+        test_root = Path(sample_cfg["test_root"])
+    manifest_csv = args.manifest
+
+    files, basis = build_file_list(
+        per_class, seed, test_root=test_root, manifest=manifest_csv,
+    )
+    # Resolve actual test_root for relative paths in output
+    test_root = test_root or _DEFAULT_TEST_ROOT
     total = len(files)
     print(f"Sample: {basis}")
 
@@ -229,7 +255,7 @@ async def main():
         w = csv.writer(f)
         w.writerow(["path", "true_class"])
         for p, cls in files:
-            w.writerow([p.relative_to(TEST_ROOT).as_posix(), cls])
+            w.writerow([p.relative_to(test_root).as_posix(), cls])
     print(f"Manifest saved: {manifest_path}")
 
     done: set[str] = set()
@@ -268,7 +294,7 @@ async def main():
 
     with results_path.open(mode, encoding="utf-8") as out:
         for idx, ((img_path, true_class), patient) in enumerate(zip(files, patient_iter)):
-            rel = img_path.relative_to(TEST_ROOT).as_posix()
+            rel = img_path.relative_to(test_root).as_posix()
 
             if rel in done:
                 skipped += 1
