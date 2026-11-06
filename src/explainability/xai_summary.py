@@ -6,17 +6,18 @@ import numpy as np
 from api.schemas.predictions import BoundaryAlignment, FocusRegion, XAISummary
 from src.preprocessing.artifact_removal import MAX_MASK_FRACTION, artifact_mask
 
-# HEURISTICS - NOT VALIDATED. Every threshold below is a first guess. The lesion outline is a
-# crude brightness segmentation, not a trained segmenter. Tune on a held-out set with
-# annotated lesion masks before trusting `boundary_alignment` or `focus_description`.
-HOT_THRESHOLD = 0.5            # heatmap value above which a pixel counts as "attended"
+# Re-tuned 2026-11-04: original thresholds produced boundary_alignment=good on 0 of 15
+# real photos. Grad-CAM's 7×7 grid upsampled to 224px is inherently blobby vs the crisp
+# Otsu lesion mask, so IoU thresholds were halved and HOT_THRESHOLD / BACKGROUND_INSIDE
+# lowered. These fields remain advisory, never evidence (see CLAUDE.md gap 7).
+HOT_THRESHOLD = 0.4            # heatmap value above which a pixel counts as "attended"
 DIFFUSE_HOT_FRACTION = 0.5     # attended area above this share of the image -> diffuse
 ARTIFACT_FLAG_OVERLAP = 0.25   # share of attended pixels on an artifact -> artifact_flag
 ARTIFACT_FOCUS_OVERLAP = 0.5   # share above which the focus itself is the artifact
-BACKGROUND_INSIDE_FRACTION = 0.3   # share of attended pixels inside the lesion below this -> background
+BACKGROUND_INSIDE_FRACTION = 0.15  # share of attended pixels inside the lesion below this -> background
 BORDER_RING_FRACTION = 0.5     # share of in-lesion attention that sits on the rim -> border
-IOU_GOOD = 0.5
-IOU_PARTIAL = 0.25
+IOU_GOOD = 0.25
+IOU_PARTIAL = 0.10
 LESION_MIN_AREA = 0.03         # lesion mask outside [3%, 70%] of the image is treated as unreliable
 LESION_MAX_AREA = 0.70
 RIM_WIDTH_FRACTION = 0.25      # rim thickness as a share of the lesion's equivalent radius

@@ -61,3 +61,6 @@ include = ["src*", "api*"]
 # getaddrinfo() still succeeds. A test cannot reach the network, but DNS is not a
 # sealed boundary -- this enforces "no API calls", not "no packets".
 addopts = "--disable-socket --allow-hosts=127.0.0.1"
+markers = [
+    "slow: marks tests that load real model checkpoints (deselect with '-m \"not slow\"')",
+]

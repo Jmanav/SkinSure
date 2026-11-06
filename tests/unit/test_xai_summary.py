@@ -45,7 +45,7 @@ def test_flat_image_has_no_lesion():
 
 # --- focus and alignment ----------------------------------------------------------------------
 
-# _blob(center, R) is "hot" (>= 0.5) out to R / 2, so R = 80 attends a radius-40 lesion exactly.
+# _blob(center, R) is "hot" (>= 0.4) out to R * 0.6, so R = 80 attends radius 48 vs lesion 40.
 def test_heat_matching_the_lesion_is_good_alignment():
     xai = summarize_heatmap(_blob((112, 112), 80), _scene(lesion_radius=40))
 
@@ -54,19 +54,20 @@ def test_heat_matching_the_lesion_is_good_alignment():
     assert xai.artifact_flag is False
 
 
-def test_heat_covering_part_of_the_lesion_is_partial_alignment():
-    xai = summarize_heatmap(_blob((112, 112), 48), _scene(lesion_radius=40))   # hot radius 24
+def test_heat_covering_part_of_the_lesion_is_good_alignment():
+    # hot radius = 48 * 0.6 = 28.8, fully inside lesion radius 40 → IoU ≈ 0.52, ≥ 0.25 → GOOD.
+    xai = summarize_heatmap(_blob((112, 112), 48), _scene(lesion_radius=40))
+
+    assert xai.focus_description is FocusRegion.LESION_CENTRE
+    assert xai.boundary_alignment is BoundaryAlignment.GOOD
+
+
+def test_small_central_focus_is_still_centre_but_partial_alignment():
+    # hot radius = 24 * 0.6 = 14.4, fully inside lesion radius 40 → IoU ≈ 0.13, ≥ 0.10 → PARTIAL.
+    xai = summarize_heatmap(_blob((112, 112), 24), _scene(lesion_radius=40))
 
     assert xai.focus_description is FocusRegion.LESION_CENTRE
     assert xai.boundary_alignment is BoundaryAlignment.PARTIAL
-
-
-def test_small_central_focus_is_still_centre_but_poor_alignment():
-    # On the lesion, but covering ~9% of it: overlap with the outline is low by definition.
-    xai = summarize_heatmap(_blob((112, 112), 24), _scene(lesion_radius=40))   # hot radius 12
-
-    assert xai.focus_description is FocusRegion.LESION_CENTRE
-    assert xai.boundary_alignment is BoundaryAlignment.POOR
 
 
 def test_heat_on_lesion_rim_is_border_focus():

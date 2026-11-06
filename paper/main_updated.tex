@@ -1,0 +1,1183 @@
+% =====================================================================
+%  SPRINGER sn-jnl VERSION -- paste into Overleaf as main.tex
+%
+%  Requires in the same folder:
+%      sn-jnl.cls        (the Springer class you provided)
+%      sn-mathphys-num.bst  (ships with the Springer template bundle)
+%      fig3_model_comparison.pdf
+%      fig4_roc.jpg
+%      fig5_confusion_matrix.pdf
+%
+%  Figures 1 and 2 are drawn inline in TikZ (no image files needed) and are
+%  wrapped in \resizebox so they fit the narrower Springer text block.
+%
+%  Reference list is kept inline as a thebibliography block (natbib-numbered),
+%  so no external .bib compilation is required.
+% =====================================================================
+
+\documentclass[pdflatex,sn-mathphys-num]{sn-jnl}% Math and Physical Sciences Numbered Reference Style
+
+%%%% Packages that are safe alongside sn-jnl.cls
+%%%% (the class already loads hyperref, natbib, amsthm, appendix, rotating,
+%%%%  threeparttable, wrapfig and defines its own captions/abstract/lists,
+%%%%  so geometry, caption, enumitem and a custom abstract are NOT loaded here)
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,calc}
+
+\begin{document}
+
+%--------------------------- front matter -----------------------------
+\title[Ensemble Learning for Early Detection of Skin Diseases in Indian Skin Tones]{Ensemble Learning for Early Detection of Skin Diseases in Indian Skin Tones}
+
+\author[1]{\fnm{Manav} \sur{Jain}}\email{manavjain019@gmail.com}
+
+\author[2]{\fnm{Dhruv} \sur{Bhagchandani}}\email{bhagchandanidhruv736@gmail.com}
+
+\author[3]{\fnm{Mohammed Ali} \sur{Fatteh}}\email{malifatteh@gmail.com}
+
+\author[4]{\fnm{Rohan} \sur{Dhand}}\email{dhandr8@gmail.com}
+
+\author*[5]{\fnm{Neha} \sur{Katre}}\email{neha.medjoge@djsce.ac.in}
+
+\affil[1,2,3,4,5]{\orgdiv{Information Technology}, \orgname{Dwarkadas J. Sanghvi College of Engineering}, \orgaddress{\street{Bhaktivedanta Swami Marg, Vile Parle (W)}, \city{Mumbai}, \postcode{400056}, \state{Maharashtra}, \country{India}}}
+
+\abstract{Early detection of skin diseases is critical to effective treatment, yet existing
+computer-aided diagnostic tools tend to perform less well on darker skin tones because of
+bias in the training datasets and the distinct morphology of lesions in melanin-rich skin.
+South Asian populations, which span a wide range of melanin-rich skin types, are
+particularly underserved by current models. This paper proposes a novel ensemble learning
+framework optimised for the early detection of skin pathologies in Indian skin tones. By
+averaging the softmax outputs of three independently fine-tuned classifiers, the proposed
+approach mitigates the biases of individual models and improves ranking quality across
+melanin-rich dermatological images. On a de-duplicated 565-image test set, the proposed
+equal-weight soft-voting ensemble achieves a test accuracy of 87.79\% (95\% CI
+84.96--90.44\%) and a macro-averaged AUC of 0.9813 (95\% CI 0.9744--0.9872), significantly
+outperforming Swin-Tiny (the single backbone with the highest macro-AUC) in accuracy (+2.12 pp), macro-AUC
+(+0.0106) and MCC (+0.0273), with all three paired bootstrap confidence intervals excluding
+zero. Melanoma sensitivity reaches 97.58\% and basal cell carcinoma sensitivity reaches
+100\%. The result is a more robust and accurate diagnostic aid for dermatologists working
+within South Asian demographic contexts.}
+
+\keywords{Skin Disease Detection, Ensemble Learning, Deep Learning, Melanin-rich Skin, Indian Skin Tones, AI in Healthcare}
+
+\maketitle
+
+\section{Introduction}\label{sec:intro}
+
+Dermatological disorders are a huge health burden worldwide, affecting millions of
+individuals and ranging from non-cancerous inflammatory conditions to malignant melanomas.
+In dermatological oncology and pathology, early and accurate diagnosis is the cornerstone
+of care, since it translates into effective therapeutic intervention and lower mortality
+\cite{ref1}. In South Asia, the epidemiology of skin disease is heavily influenced by the
+tropical climate, the high population density and the differing levels of access to health
+care. In the Indian subcontinent, fungal infections, complex pigmentation disorders and
+eczematous dermatoses are highly prevalent. Unfortunately, a major problem in these areas
+is that individuals are not diagnosed until much later, which worsens patient morbidity and
+adds to the general burden on local healthcare infrastructure.
+
+A key issue that makes both clinical and algorithmic diagnosis difficult in this population
+is the natural melanin concentration that characterises Indian skin tones. Skin diseases in
+melanin-rich skin present differently from those in lighter skin and are often very
+difficult to diagnose, frequently resulting in misdiagnosis or delayed diagnosis
+\cite{ref10}. Melanin, while providing high protection against ultraviolet radiation, also
+changes the visual appearance of cutaneous lesions. Traditional signs of inflammation, such
+as erythema (redness), may be completely hidden or may appear atypically as
+hyperpigmentation in darker skin tones. Consequently, the visual diagnostic criteria and
+computer-aided diagnostic (CAD) systems that were established largely on Caucasian-centric
+clinical atlases often do not translate well to melanin-rich populations, which
+disproportionately disadvantages people of colour and causes disparities in care
+\cite{ref6}.
+
+Over the last few years, the field of artificial intelligence (AI), and deep learning in
+particular, has made significant strides and has shown great promise in automating
+dermatological diagnosis and supporting early disease detection \cite{ref2}. However,
+today's state-of-the-art convolutional neural networks (CNNs) tend to degrade significantly
+on Indian skin tones, in part because such tones are significantly underrepresented in
+typical dermatological training sets \cite{ref4}. To overcome these algorithmic differences
+and morphological complexities, ensemble learning has emerged as a very effective paradigm.
+By intelligently integrating multiple heterogeneous machine learning and deep learning
+models, ensemble approaches increase the overall robustness, adaptability and predictive
+accuracy beyond what any single network can achieve \cite{ref14,ref15}. This paper
+introduces a new ensemble learning model for the early detection of dermatological
+conditions in Indian skin tones, aiming to fill the existing gap in AI dermatology and to
+offer an accurate, fair and practical diagnostic solution for South Asian populations.
+
+\section{Literature Review}\label{sec:litreview}
+
+Numerous researchers have suggested different methods for detecting and classifying skin
+diseases across different skin colours. The literature reviewed in this work has been
+selected from publications released in 2023 or later, reflecting how quickly the field of
+dermatological AI has progressed since the first wave of convolutional benchmarks. The
+related works are grouped here into five strands: the current state of the field; the
+datasets that determine what a model can learn; the measurement and mitigation of skin-tone
+bias; the architectural progression from single backbones to fused and ensemble designs;
+and the interpretability and deployment concerns that determine whether such systems can be
+used clinically. Each strand is considered in turn, before the gap that motivates the
+present work is stated.
+
+Aboulmira et al. \cite{ref1} examined the machine learning and deep learning methods used
+for skin disease classification and noted that transfer learning from a small number of
+public dermoscopic benchmarks still dominates the field, while relatively little
+consideration has been given to the demographic makeup of the data on which those
+benchmarks are built. The scale of what is now possible is exemplified by Yan et al.
+\cite{ref2}, who introduced PanDerm, a multimodal dermatology foundation model pretrained
+through self-supervised learning on more than two million skin disease images drawn from
+eleven clinical institutions and four imaging modalities. Evaluated across twenty-eight
+benchmarks covering cancer screening, differential diagnosis, segmentation and prognosis,
+PanDerm achieved state-of-the-art results while in most cases requiring only ten per cent
+of the labelled data used by task-specific models, and it improved the diagnostic accuracy
+of non-specialist providers in a reader study. Such results establish that representation
+learning at scale is no longer the limiting factor in dermatological AI; the limiting factor
+is what the underlying images represent.
+
+That constraint is a data constraint rather than a modelling constraint, and three recent
+corpora take it up directly. Ward et al. \cite{ref3} constructed the Skin Condition Image
+Network (SCIN) by inviting submissions through search advertisements, compiling 10,408
+images from 5,033 consented submissions that carry dermatologist labels together with
+estimated Fitzpatrick skin type and Monk Skin Tone labels, thereby capturing the
+early-stage, self-photographed presentations that clinical archives seldom contain.
+Gottfrois et al. \cite{ref4} published PASSION, which consists of 4,901 telemedicine images
+from 1,653 patients in Sub-Saharan Africa and targets four conditions that are common in
+pigmented skin: eczema, fungal infections, scabies and impetigo. Most directly relevant to
+the present study, Madarkar et al. \cite{ref5} compiled DermaCon-IN, a prospectively
+collected set of 5,450 clinical images from approximately three thousand patients attending
+outpatient clinics in South India, annotated by board-certified dermatologists across 245
+diagnoses under an aetiology-based taxonomy, on which convolutional, transformer and
+concept-bottleneck architectures were benchmarked. Taken together, these efforts show that
+region-specific disease distributions and tonal variation cannot be recovered from Western
+archives by augmentation alone.
+
+The impact of unrepresentative data has been measured with increasing precision.
+Ben\v{c}evi\'{c} et al. \cite{ref6} evaluated skin-tone bias in skin lesion segmentation
+networks, estimating skin colour through Fitzpatrick typing and individual typology angle
+where no tone labels existed, and reported systematically lower segmentation performance on
+darker tones, together with the disappointing finding that common mitigation strategies
+failed to close the gap meaningfully. Since tone labels are frequently missing, Corbin and
+Marques \cite{ref7} studied strategies for creating Fitzpatrick metadata for dermoscopic
+images using individual typology angle techniques, which makes retrospective bias auditing
+possible on legacy corpora. Mitigation has been attempted from two directions: Kong et al.
+\cite{ref8} pursued fairness in dermatological disease diagnosis by intervening on the
+network through channel pruning, whereas Munia and Imran \cite{ref9} proposed DermDiff, a
+generative diffusion model that synthesises additional imagery for underrepresented skin
+tones. That the issue still exists in the latest systems is clear from Housley et al.
+\cite{ref10}, who tested a multimodal large language model on 324 biopsy-confirmed
+dermatological images and found significantly lower sensitivity, specificity and accuracy
+for melanoma in Fitzpatrick types III to VI than in types I and II.
+
+At the same time, the architectures used for lesion classification have changed from
+strictly convolutional designs to attention-based and hybrid ones. Ayas \cite{ref11} applied
+a Swin Transformer to multiclass dermoscopic lesion classification and demonstrated that
+hierarchical shifted-window attention transfers well to lesion imagery despite the
+relatively small size of dermatological datasets. Recognising that convolutional and
+attention-based encoders capture different evidence, Hao et al. \cite{ref12} proposed
+ConvNeXt-ST-AFF, in which pretrained ConvNeXt and Swin Transformer branches extract local
+and global features that are then combined by attentional feature fusion submodules,
+reporting 92.16 per cent accuracy on ISIC 2019 alongside a private acne dataset. This line
+was developed further by Liu et al. \cite{ref13} with FUSCANet, which couples feature fusion
+with spatial and channel attention in order to sharpen the discriminative signal in skin
+disease classification. The common theme in these works is that the fusion of heterogeneous
+representations, rather than depth within a single family, is what improves performance on
+visually overlapping conditions.
+
+Ensemble strategies formalise that intuition. Lilhore et al. \cite{ref14} introduced
+SkinEHDLF, a model with ConvNeXt, EfficientNetV2 and Swin Transformer branches that uses an
+adaptive attention-based feature fusion mechanism and is evaluated on ISIC 2024 imagery
+resized to a standard $224 \times 224$ resolution. Thwin and Park \cite{ref15} took the
+simpler route of weighted prediction averaging over VGG16, Inception-V3 and ResNet-50
+fine-tuned on ISIC 2018, achieving 91 per cent accuracy on the original distribution and 97
+per cent after class balancing, and subsequently adopted an approach in which segmentation
+and classification are performed by cooperating ensemble members \cite{ref16}. Asif et al.
+\cite{ref17} replaced the linear combination with a Choquet fuzzy integral whose fuzzy
+measures are optimised by particle swarm optimisation, diagnosing multiple skin diseases
+including Mpox and demonstrating that the aggregation rule itself is a design parameter
+worth tuning. DeepSkin, reported by Gururaj et al. \cite{ref18}, is a deep learning pipeline
+for skin cancer classification that shows the accuracy attainable through careful
+preprocessing and transfer learning on standard benchmarks. The common denominator of these
+findings is that ensembles perform better than their individual members; what none of them
+determines is whether that advantage persists after the shift to melanin-rich presentations.
+
+Interpretability has emerged as a precondition for clinical trust rather than an optional
+addition. Hosny et al. \cite{ref19} proposed an explainable deep inherent learning method
+for multi-class lesion classification in which the explanation is generated by the model
+rather than imposed afterwards, and Metta et al. \cite{ref20} analysed interpretable AI for
+lesion classification with attention to whether the resulting explanations are
+diagnostically meaningful. Badhon et al. \cite{ref21} combined transfer learning with
+gradient-weighted class activation mapping across acne, vitiligo, hyperpigmentation, nail
+psoriasis and Stevens-Johnson syndrome, demonstrating that saliency evidence can be obtained
+even for conditions with scarce training data, while Fiaz et al. \cite{ref22} embedded
+Grad-CAM within a hybrid framework that performs segmentation and multi-class classification
+jointly, so that the highlighted region and the predicted class are spatially consistent.
+
+Finally, a number of groups have addressed the conditions under which such systems are
+actually deployed. Lee et al. \cite{ref23} created a multi-task, few-shot learning platform
+for the mobile diagnosis of skin diseases, targeting the limited hardware resources found in
+primary care settings. Hossen et al. \cite{ref24} applied federated machine learning to skin
+disease detection while enhancing the security of the underlying Internet of Medical Things
+(IoMT) infrastructure, thereby avoiding the centralised collection of patient images. Hsu
+and Tseng \cite{ref25} confronted a failure mode that closed-set benchmarks conceal and
+proposed HiTrace for hierarchical open-set recognition, so that conditions outside the
+training taxonomy are flagged rather than forced into an existing class.
+
+Based on the above discussions, it can be concluded that the recent literature has yielded
+strong hybrid and ensemble architectures \cite{ref12,ref13,ref14,ref15,ref16,ref17}, a
+developed vocabulary for measuring skin-tone bias \cite{ref6,ref7,ref8,ref9,ref10}, and the
+first datasets that adequately represent pigmented and specifically Indian skin
+\cite{ref4,ref5}, yet these threads remain largely separate. Fusion architectures have been
+validated almost exclusively on Western dermoscopic archives; bias studies usually audit
+existing off-the-shelf models rather than proposing a classifier designed for melanin-rich
+presentations; and the datasets constructed for diverse tones are seldom paired with the
+heterogeneous ensembles that perform best elsewhere. The present study addresses this
+intersection by creating a curated melanin-rich corpus and training a heterogeneous
+soft-voting ensemble on it, so that the complementary inductive biases of convolutional,
+attention-based and hybrid encoders are brought to bear directly on the presentations most
+commonly seen in Indian skin tones.
+
+\section{Proposed System Architecture}\label{sec:sysarch}
+
+The proposed Intelligent Preliminary Diagnosis (IPD) system is designed as a clinically
+integrated, end-to-end pipeline for automated skin disease detection, tailored to the
+diagnostic difficulties caused by the different levels of pigmentation found in Indian skin
+tones. This section describes the \emph{target} architecture; the experiments reported in
+Section~\ref{sec:results} evaluate only the image classification engine (preprocessing,
+ensemble model and explainability), while clinical decision support modules (treatment
+recommendations, specialist referral and geo-indexed pharmacy lookup) are specified here as
+design goals and are not yet implemented. The design integrates clinical data management with
+state-of-the-art computer vision, allowing classification across five dermatological
+conditions: Tinea, Melanoma, Basal Cell Carcinoma, Eczema and Keratosis. An overview of the
+system pipeline is shown in Fig.~\ref{fig:pipeline}.
+
+\subsection{User Authentication}
+
+The pipeline begins with a secure authentication gateway that verifies the identity of both
+patients and clinical practitioners. The module uses encrypted login credentials and
+multi-factor user verification to guarantee the integrity of the system and conformance with
+regulatory requirements on data protection. After verification, the user is able to access
+his or her profile and is allowed to start diagnostic sessions.
+
+\subsection{Medical History Profile Integration}
+
+The system fetches or generates the patient's longitudinal Medical History Profile, a
+collection of three types of contextual information: (i) demographic data, including age,
+sex and geographic region; (ii) allergy records relating to known contact irritants and
+pharmacological sensitivities; and (iii) historical disease records and prior diagnoses.
+This contextual information is later combined with the visual feature representations at the
+classification stage.
+
+\begin{figure}[!t]
+\centering
+% ---------------------------------------------------------------------
+% Fig. 1 -- Intelligent Preliminary Diagnosis (IPD) system pipeline
+% Wrapped in \resizebox so the wide TikZ diagram fits the Springer text
+% block. To enlarge label text, raise the \small/\scriptsize sizes and
+% the "modbox" text width before scaling.
+% ---------------------------------------------------------------------
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\small,
+  modbox/.style={
+    draw=black!70, line width=0.5pt, rounded corners=1.2pt,
+    align=center, inner sep=3.5pt,
+    text width=26mm, minimum height=14mm},
+  grouplabel/.style={font=\scriptsize\itshape, text=black!60, fill=white, inner sep=1pt},
+  flow/.style={-{Latex[length=2mm,width=1.6mm]}, draw=black!75, line width=0.5pt},
+  edgelab/.style={font=\scriptsize, text=black!70, fill=white, inner sep=1.5pt}
+]
+
+% suppress hyphenation inside diagram boxes
+\hyphenpenalty=10000\exhyphenpenalty=10000\relax
+
+% ---- main horizontal chain -------------------------------------------
+\node[modbox] at (-60mm,0) (auth) {%
+  {\small\bfseries User Authentication}\\[1pt]
+  {\scriptsize Secure login and verification}};
+
+\node[modbox] at (-30mm,0) (acq) {%
+  {\small\bfseries Image Acquisition}\\[1pt]
+  {\scriptsize Image capture, quality check}};
+
+\node[modbox] at (0mm,0) (pre) {%
+  {\small\bfseries Image Preprocessing}\\[1pt]
+  {\scriptsize Resize, ImageNet normalization (optional: artifact removal, colour normalization)}};
+
+\node[modbox] at (30mm,0) (feat) {%
+  {\small\bfseries Feature Extraction}\\[1pt]
+  {\scriptsize Morphological, texture and geometric descriptors}};
+
+\node[modbox] at (60mm,0) (clf) {%
+  {\small\bfseries Classification and Scoring}\\[1pt]
+  {\scriptsize Learned classifier, pattern recognition, severity score}};
+
+% ---- medical history profile (above) ---------------------------------
+\node[modbox, text width=36mm] at (0mm,30mm) (hist) {%
+  {\small\bfseries Medical History Profile}\\[1pt]
+  {\scriptsize Demographics, allergy records, past diseases and diagnoses}};
+
+% ---- metadata and clinical decision support (below) ------------------
+\node[modbox] at (30mm,-34mm) (meta) {%
+  {\small\bfseries Metadata Integration}\\[1pt]
+  {\scriptsize Clinical context, patient age, device settings}};
+
+\node[modbox, minimum height=18mm] at (60mm,-34mm) (cds) {%
+  {\small\bfseries Clinical Decision Support}\\[1pt]
+  {\scriptsize \raggedright
+   -- Diagnosis report\\
+   -- Treatment recommendations\\
+   -- Referral to local specialists}};
+
+% ---- dashed group boxes ----------------------------------------------
+\begin{scope}[on background layer]
+  \node[draw=black!45, dashed, line width=0.4pt, rounded corners=1.5pt,
+        fit=(acq)(pre), inner sep=4pt] (grpA) {};
+  \node[draw=black!45, dashed, line width=0.4pt, rounded corners=1.5pt,
+        fit=(feat)(clf), inner sep=4pt] (grpB) {};
+\end{scope}
+\node[grouplabel, anchor=south west] at ([yshift=0.8mm]grpA.north west)
+  {Image acquisition pipeline};
+\node[grouplabel, anchor=south west] at ([yshift=0.8mm]grpB.north west)
+  {Feature analysis and inference};
+
+% ---- connections ------------------------------------------------------
+\draw[flow] (auth) -- (acq);
+\draw[flow] (acq)  -- (pre);
+\draw[flow] (pre)  -- (feat);
+\draw[flow] (feat) -- (clf);
+
+% authentication opens the medical history profile
+\draw[flow] (auth.north) |- (hist.west);
+
+% history profile supplies patient context to the classifier
+\draw[flow] (hist.east) -| (clf.north)
+  node[edgelab, pos=0.4, above] {patient context};
+
+% metadata integration feeds feature analysis
+\draw[flow] (meta.north) -- (feat.south)
+  node[edgelab, midway, right, xshift=1mm] {clinical metadata};
+
+% classification feeds clinical decision support
+\draw[flow] (clf.south) -- (cds.north)
+  node[edgelab, midway, right] {severity score};
+
+\end{tikzpicture}%
+}
+\caption{Overview of the complete Intelligent Preliminary Diagnosis (IPD) system pipeline.}
+\label{fig:pipeline}
+\end{figure}
+
+\subsection{Image Acquisition}
+
+The image acquisition module receives clinical photographs acquired with a smartphone or
+general-purpose camera, as well as dermoscopic images acquired with standard dermatoscopy
+hardware where such equipment is available \cite{ref23} and performs an automated Image
+Quality Check before downstream processing. This check evaluates resolution (minimum 200
+pixels on the short side) and focus sharpness (Laplacian variance, rejecting below 5.0 and
+warning below 15.0). The quality gate is a deployment-path component and was not applied to
+the training or test corpus.
+
+\subsection{Image Preprocessing}
+
+Validated images are sent to the preprocessing module. In the experiments reported in
+Section~\ref{sec:results}, preprocessing consists of resizing to $224 \times 224$ pixels
+followed by ImageNet channel normalisation; no additional pixel-changing steps were applied.
+The system architecture provides optional modules for artifact removal (ruler markings, ink
+annotations and glare) and colour normalisation (Shades-of-Gray), but these are disabled by
+default: paired experiments on the full test set showed that hair removal degraded BCC
+sensitivity and artifact removal was statistically inert (McNemar $p = 1.0$), so neither was
+active during training or evaluation.
+
+\subsection{Feature Extraction}
+
+Quality-checked and preprocessed images are passed to the feature extraction stage, which is
+realised by the multi-branch deep encoder described in Section~\ref{sec:dlarch}. Rather than
+computing handcrafted morphological, texture and geometric descriptors, the system learns its
+representations directly from pixels: three heterogeneous encoders operate on the same input
+in parallel and produce complementary representations whose softmax outputs are combined
+at decision level. The design rationale for this choice, together with the individual
+branches, is set out in Section~\ref{sec:encoder}.
+
+\subsection{Metadata Integration}
+
+In the deployed system, patient metadata (age, sex, geographic region, medical history and
+symptom duration) is passed to an LLM-based clinical summariser that interprets the ensemble's
+predictions in context; it does not enter the classifier itself. The experiments reported in
+Section~\ref{sec:results} evaluate the image-only classification engine, since the aggregated
+public corpora used in this study do not carry a consistent metadata schema. Metadata-aware
+interpretation is therefore a deployment-path feature and is not exercised in the present
+evaluation.
+
+\subsection{Classification and Scoring}
+
+Each backbone produces its own class probability distribution, and the ensemble combines
+them by equal-weight softmax averaging as described in Section~\ref{sec:dlarch}. The module
+produces (i) the ensemble class probability distribution across the five target conditions
+and (ii) an agreement score quantifying the fraction of backbones whose top-1 prediction
+matches the ensemble argmax, which serves as a confidence signal for downstream triage.
+
+\subsection{Clinical Decision Support}
+
+The terminal module is designed to convert the classification results into actionable clinical
+outputs. In the current implementation, a deterministic severity triage module applies safety
+overrides: melanoma at moderate or higher confidence forces an urgent referral, low model
+confidence triggers a re-capture request, and rapidly spreading infections are escalated. An
+LLM-based summariser then produces a natural-language clinical summary. Treatment
+recommendations and geo-indexed specialist referral are planned but not yet implemented.
+
+\section{Dataset Description}\label{sec:dataset}
+
+One of the major challenges in developing skin disease detection systems for the Indian
+population is the lack of representative datasets. The majority of publicly available
+dermatological datasets are biased towards lighter Fitzpatrick skin types (Type I--II), while
+wheatish to brown skin tones (Type III--V) are under-represented to a large extent. The
+constituent sources differ in acquisition modality: Fitzpatrick17k, PAD-UFES-20, DermaCon-IN
+and the Skin Disease Image Dataset consist predominantly of clinical photographs, including
+smartphone-acquired images, whereas the Melanoma Cancer Image Dataset contributes dermoscopic
+imagery. In response, a curated dataset was created from five of the main publicly available
+image sets: the Fitzpatrick17k dataset, the PAD-UFES-20 dataset, the DermaCon-IN dataset
+\cite{ref5}, the Melanoma Cancer Image Dataset and the Skin Disease Image Dataset (SDID).
+
+\subsection{Data Curation Pipeline}
+
+The dataset was assembled from the five publicly available sources listed above. A five-class subset was selected from a larger nine-class corpus (which additionally contains Acne, Lichen Planus, Psoriasis and Vitiligo) to focus on the conditions most relevant to the screening task. No automated skin-tone filtering or de-duplication was applied at dataset construction time; a post-hoc perceptual-hash audit (Section~\ref{sec:dedup}) later identified and removed cross-split near-duplicates from the test partition.
+
+\subsection{Final Dataset Composition}
+
+After applying the pipeline and restricting to the five target conditions, a final curated
+dataset of 6,655 images was obtained, divided into five clinically relevant disease classes
+as shown in Table~\ref{tab:dataset}.
+
+\begin{table}[htbp]
+\caption{Class-wise distribution of the final curated dataset.}\label{tab:dataset}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Disease Class & Train & Val & Test & Total \\
+\midrule
+Basal Cell Carcinoma & 968 & 119 & 121 & 1,208 \\
+Eczema & 1,072 & 148 & 145 & 1,365 \\
+Keratosis & 977 & 159 & 158 & 1,294 \\
+Melanoma & 1,197 & 202 & 188 & 1,587 \\
+Tinea & 966 & 120 & 115 & 1,201 \\
+\midrule
+Total & 5,180 & 748 & 727 & 6,655 \\
+\botrule
+\end{tabular}
+\end{table}
+
+\subsection{Data Partitioning and Class Imbalance}\label{sec:imbalance}
+
+The curated corpus was divided into training, validation and test partitions in the
+approximate ratio 78:11:11 (5,180 / 748 / 727 images), inherited as a fixed folder
+structure with a random seed of 42. Partitioning was stratified by disease class so that the
+class proportions of Table~\ref{tab:dataset} are preserved in every partition. A post-hoc
+perceptual-hash (pHash) analysis\label{sec:dedup} identified 162 near-duplicate images (22.28\%) between the
+test set and the training or validation partitions; all reported test metrics are therefore
+computed on the de-duplicated subset of 565 images unless otherwise stated.
+
+The corpus is mildly imbalanced: the largest class (Melanoma, 1,197 training images)
+outnumbers the smallest (Tinea, 966) by a ratio of approximately 1.24 to one. Despite this
+moderate skew, three complementary mechanisms are used to ensure that the optimiser
+emphasises the clinically critical conditions.
+
+First, mini-batches are constructed using a weighted random sampler rather than uniform
+shuffling. Each training instance belonging to class $k$ is assigned a sampling weight
+inversely proportional to the frequency of that class
+\begin{equation}
+w^{\mathrm{samp}}_{k} = \frac{1}{n_{k}}
+\end{equation}
+where $n_{k}$ is the number of training images of class $k$, and instances are drawn with
+replacement. Every mini-batch therefore contains an approximately uniform mixture of the five
+conditions irrespective of their prevalence in the corpus. This mechanism governs exposure:
+it guarantees that the minority classes appear often enough for their gradients to accumulate.
+
+Second, the classification loss is itself class-weighted. Base weights follow an inverse
+square-root frequency rule
+\begin{equation}
+w_{k} \propto \frac{1}{\sqrt{n_{k}}}
+\end{equation}
+which is a gentler correction than inverse frequency and avoids over-amplifying the smallest
+class once the sampler has already equalised exposure. The normalised weights are then scaled
+by condition-specific factors that reflect clinical priority rather than prevalence, after
+which the vector is renormalised to sum to unity.
+
+The asymmetry of these factors is deliberate. Melanoma is boosted by a factor of 2.0 because
+the cost of a missed melanoma is not symmetric with the cost of an unnecessary referral;
+BCC is likewise boosted by 2.0, Eczema by 1.5 and Tinea by 3.0 as the smallest class and
+the one most prone to underfitting. Keratosis receives no clinical boost (factor 1.0) and
+consequently ends up with the lowest effective loss weight of the five classes, which
+contributes to its lower recall (see Section~\ref{sec:perclass}). The two mechanisms thus
+operate on different axes: the sampler ensures that all classes are physically present in
+training, while the weighted loss ensures that the optimiser remains disproportionately
+sensitive to errors on the clinically critical conditions.
+
+Third, model selection is itself made imbalance-aware, as described in
+Section~\ref{sec:expsetup}. Per-class metrics are reported in addition to overall accuracy so
+that performance on the minority classes remains visible.
+
+\section{Deep Learning Architecture}\label{sec:dlarch}
+
+The core classification engine of the IPD system is a soft-voting ensemble of three
+independently fine-tuned backbones that exploits the complementary inductive biases of
+convolutional, attention-based and hybrid neural network families. Each backbone accepts
+clinical and dermoscopic images resized to a standard spatial resolution of
+$224 \times 224 \times 3$ pixels and produces its own five-class probability distribution;
+the ensemble prediction is the equal-weight average of these three distributions
+(Section~\ref{sec:fusion}).
+
+\subsection{Multi-Branch Encoder Design}\label{sec:encoder}
+
+Let $X \in \mathbb{R}^{224 \times 224 \times 3}$ denote the pre-processed input image. The
+input tensor is processed simultaneously by three separate encoder branches:
+
+\begin{itemize}
+\item \textbf{EfficientNet-B1 (Primary Edge Detection Module):} uses Mobile Inverted
+Bottleneck Convolution (MBConv) blocks with depthwise separable convolutions to extract
+fine-grained spatial detail, augmented by a Squeeze-and-Excitation (SE) sub-module
+\cite{ref27}.
+\item \textbf{Swin Transformer (Primary Pattern Recognition Module):} captures long-range
+spatial dependencies through a Shifted Window Multi-head Self-Attention (SW-MSA) mechanism
+\cite{ref11}.
+\item \textbf{ConvNeXt-Tiny (Secondary Refinement Branch):} uses large-kernel ($7 \times 7$)
+depthwise convolutions and Layer Normalization to link local CNN representations with global
+transformer representations \cite{ref12}.
+\end{itemize}
+
+\begin{figure}[!t]
+\centering
+% ---------------------------------------------------------------------
+% Fig. 2 -- Multi-branch Ensemble Deep Learning Architecture
+% Wrapped in \resizebox so the tall/wide TikZ diagram fits the Springer
+% text block.
+% ---------------------------------------------------------------------
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\small,
+  blk/.style={
+    draw=black!70, line width=0.5pt, rounded corners=1.2pt,
+    align=center, inner sep=3.5pt,
+    text width=36mm, minimum height=11mm},
+  wide/.style={blk, text width=62mm},
+  grouplabel/.style={font=\scriptsize\itshape, text=black!60, fill=white, inner sep=1pt},
+  flow/.style={-{Latex[length=2mm,width=1.6mm]}, draw=black!75, line width=0.5pt},
+  edgelab/.style={font=\scriptsize, text=black!70, fill=white, inner sep=1.5pt},
+  ylev/.style={},
+]
+
+% suppress hyphenation inside diagram boxes
+\hyphenpenalty=10000\exhyphenpenalty=10000\relax
+
+\def\colA{-46mm}
+\def\colB{0mm}
+\def\colC{46mm}
+
+% ---- input ----------------------------------------------------------
+\node[wide] at (\colB,0) (input) {%
+  {\small\bfseries Input clinical or dermoscopic image}\\[1pt]
+  {\scriptsize $224 \times 224 \times 3$, melanin-based tone variation}};
+
+% ---- branch headers -------------------------------------------------
+\node[blk] at (\colA,-20mm) (effA) {%
+  {\small\bfseries EfficientNet-B1}\\[1pt]
+  {\scriptsize local texture and boundary cues}};
+\node[blk] at (\colB,-20mm) (swiA) {%
+  {\small\bfseries Swin Transformer (Swin-T)}\\[1pt]
+  {\scriptsize global pattern recognition}};
+\node[blk] at (\colC,-20mm) (conA) {%
+  {\small\bfseries ConvNeXt-Tiny}\\[1pt]
+  {\scriptsize secondary refinement branch}};
+
+% ---- stage 2 --------------------------------------------------------
+\node[blk] at (\colA,-35mm) (effB) {%
+  {\small\bfseries MBConv blocks}\\[1pt]
+  {\scriptsize depthwise separable convolution, fine-grained lesion texture}};
+\node[blk] at (\colB,-35mm) (swiB) {%
+  {\small\bfseries Patch embedding}\\[1pt]
+  {\scriptsize image split into non-overlapping token patches}};
+\node[blk] at (\colC,-35mm) (conB) {%
+  {\small\bfseries Modernized conv blocks}\\[1pt]
+  {\scriptsize large $7 \times 7$ kernels, LayerNorm, bridges CNN and transformer design}};
+
+% ---- stage 3 --------------------------------------------------------
+\node[blk] at (\colA,-50mm) (effC) {%
+  {\small\bfseries Squeeze-and-excitation}\\[1pt]
+  {\scriptsize channel-wise attention}};
+\node[blk] at (\colB,-50mm) (swiC) {%
+  {\small\bfseries SW-MSA}\\[1pt]
+  {\scriptsize shifted-window self-attention}};
+
+% ---- stage 4: pooling ----------------------------------------------
+\node[blk] at (\colA,-65mm) (effD) {%
+  {\small\bfseries Global average pooling}\\[1pt]
+  {\scriptsize 1280-d feature vector}};
+\node[blk] at (\colB,-65mm) (swiD) {%
+  {\small\bfseries Adaptive average pooling}\\[1pt]
+  {\scriptsize 768-d feature vector}};
+\node[blk] at (\colC,-65mm) (conD) {%
+  {\small\bfseries Global average pooling}\\[1pt]
+  {\scriptsize 768-d feature vector}};
+
+% ---- stage 5: feature vectors --------------------------------------
+\node[blk] at (\colA,-80mm) (effE) {%
+  {\small\bfseries Feature vector}\\[1pt]
+  {\scriptsize 1280-d $\rightarrow$ head}};
+\node[blk] at (\colB,-80mm) (swiE) {%
+  {\small\bfseries Feature vector}\\[1pt]
+  {\scriptsize 768-d $\rightarrow$ head}};
+\node[blk] at (\colC,-80mm) (conE) {%
+  {\small\bfseries Feature vector}\\[1pt]
+  {\scriptsize 768-d $\rightarrow$ head}};
+
+% ---- per-branch heads -----------------------------------------------
+\node[blk] at (\colA,-95mm) (effH) {%
+  {\small\bfseries Classification head}\\[1pt]
+  {\scriptsize LN $\rightarrow$ 256 $\rightarrow$ 5, GELU, dropout 0.35}};
+\node[blk] at (\colB,-95mm) (swiH) {%
+  {\small\bfseries Classification head}\\[1pt]
+  {\scriptsize LN $\rightarrow$ 256 $\rightarrow$ 5, GELU, dropout 0.4}};
+\node[blk] at (\colC,-95mm) (conH) {%
+  {\small\bfseries Classification head}\\[1pt]
+  {\scriptsize LN $\rightarrow$ 256 $\rightarrow$ 5, GELU, dropout 0.4}};
+
+% ---- decision-level fusion ------------------------------------------
+\node[wide] at (\colB,-115mm) (fuse) {%
+  {\small\bfseries Decision-level fusion}\\[1pt]
+  {\scriptsize Equal-weight average of softmax outputs: $p = \tfrac{1}{3}(p_{\mathrm{eff}} + p_{\mathrm{swin}} + p_{\mathrm{conv}})$}};
+
+\node[wide] at (\colB,-129mm) (head) {%
+  {\small\bfseries Ensemble prediction}\\[1pt]
+  {\scriptsize argmax over 5 classes + agreement score}};
+
+\node[font=\scriptsize, text=black!70, below=3mm of head] (classes)
+  {Tinea, Melanoma, Basal Cell Carcinoma, Eczema, Keratosis};
+
+% ---- dashed group boxes ---------------------------------------------
+\begin{scope}[on background layer]
+  \node[draw=black!45, dashed, line width=0.4pt, rounded corners=1.5pt,
+        fit=(effA)(conA)(effH)(conH), inner sep=5pt] (grpBranch) {};
+  \node[draw=black!45, dashed, line width=0.4pt, rounded corners=1.5pt,
+        fit=(fuse)(head), inner sep=5pt] (grpHead) {};
+\end{scope}
+\node[grouplabel, anchor=south west] at ([yshift=0.8mm]grpHead.north west) {Decision-level ensemble};
+
+% ---- connections -----------------------------------------------------
+\draw[flow] (input.south) -- ++(0,-3mm) -| (effA.north);
+\draw[flow] (input.south) -- (swiA.north);
+\draw[flow] (input.south) -- ++(0,-3mm) -| (conA.north);
+
+\foreach \a/\b in {effA/effB, effB/effC, effC/effD, effD/effE, effE/effH,
+                   swiA/swiB, swiB/swiC, swiC/swiD, swiD/swiE, swiE/swiH,
+                   conB/conD, conD/conE, conE/conH}
+  \draw[flow] (\a) -- (\b);
+
+\draw[flow] (conA) -- (conB);
+\node[edgelab, right=0.5mm] at ($(conB.south)!0.5!(conD.north)+(4mm,0)$) {no attention stage};
+
+\draw[flow] (effH.south) |- ++(0,-6mm) -| (fuse.north);
+\draw[flow] (swiH.south) -- (fuse.north);
+\draw[flow] (conH.south) |- ++(0,-6mm) -| (fuse.north);
+\node[edgelab] at ($(swiH.south)+(26mm,-1mm)$) {softmax each};
+
+\draw[flow] (fuse) -- (head);
+\draw[flow] (head) -- (classes);
+
+\end{tikzpicture}%
+}
+\caption{Soft-voting ensemble architecture. Three independently fine-tuned backbones each produce a five-class softmax distribution; the ensemble prediction is their equal-weight average.}
+\label{fig:architecture}
+\end{figure}
+
+The MBConv blocks of the first branch factorise a standard convolution into a depthwise and a
+pointwise stage. For an input feature map $U$ with $C$ channels, the depthwise stage applies a
+single kernel per channel
+\begin{equation}
+Y_{i,j,c} = \sum_{m} \sum_{n} K^{d}_{m,n,c}\, U_{i+m,\, j+n,\, c},
+\qquad c = 1, \ldots, C
+\end{equation}
+after which a pointwise kernel $K^{p}$ mixes information across channels, $Z = K^{p} * Y$.
+This factorisation reduces the parameter count by roughly a factor of $C$ relative to a dense
+convolution of the same receptive field, which is what allows the branch to remain narrow
+while operating at high spatial resolution.
+
+Channel recalibration is then performed by the Squeeze-and-Excitation sub-module. The squeeze
+operation summarises each channel by global average pooling
+\begin{equation}
+z_{c} = \frac{1}{H \times W} \sum_{i=1}^{H} \sum_{j=1}^{W} u_{c}(i,j)
+\end{equation}
+and the excitation operation learns a multiplicative gate over channels
+\begin{equation}
+s = \sigma\!\left(W_{2}\, \delta(W_{1} z)\right), \qquad \tilde{u}_{c} = s_{c}\, u_{c}
+\end{equation}
+where $\delta$ denotes the ReLU non-linearity, $\sigma$ the logistic sigmoid, and
+$W_{1} \in \mathbb{R}^{\frac{C}{r} \times C}$,
+$W_{2} \in \mathbb{R}^{C \times \frac{C}{r}}$ with reduction ratio $r$. In melanin-rich
+imagery, where lesion boundaries are frequently expressed through texture rather than colour
+contrast, this gating allows the branch to suppress channels dominated by background
+pigmentation.
+
+The second branch partitions the feature map into non-overlapping windows and computes
+self-attention within each window
+\begin{equation}
+\mathrm{Attention}(Q,K,V) = \mathrm{softmax}\!\left(\frac{QK^{\top}}{\sqrt{d}} + B\right) V
+\end{equation}
+where $Q$, $K$ and $V$ are the query, key and value projections of the window tokens, $d$ is
+the query dimension and $B$ is the learned relative position bias. Consecutive Swin blocks
+alternate between regular and shifted window partitioning so that information crosses window
+boundaries
+\begin{align}
+\hat{z}^{\,l} &= \mathrm{W\text{-}MSA}\!\left(\mathrm{LN}\!\left(z^{l-1}\right)\right) + z^{l-1} \\
+z^{l} &= \mathrm{MLP}\!\left(\mathrm{LN}\!\left(\hat{z}^{\,l}\right)\right) + \hat{z}^{\,l} \\
+\hat{z}^{\,l+1} &= \mathrm{SW\text{-}MSA}\!\left(\mathrm{LN}\!\left(z^{l}\right)\right) + z^{l} \\
+z^{l+1} &= \mathrm{MLP}\!\left(\mathrm{LN}\!\left(\hat{z}^{\,l+1}\right)\right) + \hat{z}^{\,l+1}
+\end{align}
+
+The third branch applies an inverted-bottleneck residual block in which a large-kernel
+depthwise convolution is followed by Layer Normalization and two pointwise projections
+separated by a GELU non-linearity
+\begin{equation}
+y = x + W_{p2}\, \mathrm{GELU}\!\left(W_{p1}\, \mathrm{LN}\!\left(\mathrm{DWConv}_{7\times7}(x)\right)\right)
+\end{equation}
+
+Each branch terminates in a pooling operation that reduces its final feature map to a vector
+\begin{equation}
+f_{b} = \frac{1}{H_{b} \times W_{b}} \sum_{i=1}^{H_{b}} \sum_{j=1}^{W_{b}} X_{b}(i,j,\cdot),
+\qquad b \in \{\mathrm{eff}, \mathrm{swin}, \mathrm{conv}\}
+\end{equation}
+yielding $f_{\mathrm{eff}} \in \mathbb{R}^{1280}$, $f_{\mathrm{swin}} \in \mathbb{R}^{768}$
+and $f_{\mathrm{conv}} \in \mathbb{R}^{768}$. Each vector is then passed to the branch's own
+classification head, described in the following subsection.
+
+\subsection{Per-Branch Classification Head}
+
+Each branch terminates in an independent classification head rather than a shared fusion
+network. The head architecture is identical across backbones: Layer Normalization followed by
+a two-layer MLP with GELU activations and dropout
+\begin{equation}
+h_{1} = \mathrm{GELU}\!\left(W_{1}\, \mathrm{LN}(f_{b}) + b_{1}\right), \qquad
+h_{2} = W_{2}\, \mathrm{Dropout}_{d/2}\!\left(\mathrm{GELU}\!\left(\mathrm{Dropout}_{d}(h_{1})\right)\right) + b_{2}
+\end{equation}
+with $W_{1} \in \mathbb{R}^{256 \times d_{b}}$ and $W_{2} \in \mathbb{R}^{5 \times 256}$,
+where $d_{b} \in \{1280, 768, 768\}$ and dropout rate $d$ is 0.35 for EfficientNet-B1 and
+0.4 for ConvNeXt-Tiny and Swin-Tiny (halved in the second layer). Each head produces a logit
+vector $z_{b} \in \mathbb{R}^{5}$ and a per-branch softmax distribution
+\begin{equation}
+p_{b,k} = \frac{\exp(z_{b,k})}{\sum_{j=1}^{K} \exp(z_{b,j})}, \qquad k = 1, \ldots, K
+\end{equation}
+
+\subsection{Decision-Level Fusion}\label{sec:fusion}
+
+The three branches are trained independently and their softmax outputs are combined at
+decision level by an equal-weight average
+\begin{equation}
+p_{k} = \frac{1}{3}\sum_{b \in \{\mathrm{eff}, \mathrm{swin}, \mathrm{conv}\}} p_{b,k}
+\end{equation}
+No weight search was performed; the equal weighting was retained as a deliberate design
+choice to avoid overfitting the combination rule to the validation set. Agreement among
+the branches is quantified by the fraction of backbones whose individual argmax matches
+the ensemble argmax, producing an agreement score in $\{0, \tfrac{1}{3}, \tfrac{2}{3}, 1\}$
+that is passed downstream as a confidence signal.
+
+\subsection{Training Configuration and Optimization}\label{sec:training}
+
+Each backbone is trained independently by minimising the cross-entropy loss with label
+smoothing. Writing $y$ for the one-hot target, the smoothed target and the resulting
+objective are
+\begin{equation}
+q_{k} = (1 - \varepsilon)\, y_{k} + \frac{\varepsilon}{K}, \qquad
+\mathcal{L} = -\sum_{k=1}^{K} w_{k}\, q_{k} \log p_{k}
+\end{equation}
+with $\varepsilon = 0.1$ for EfficientNet-B1 and $\varepsilon = 0.15$ for ConvNeXt-Tiny and
+Swin-Tiny, and $w_{k}$ the class weights defined in Section~\ref{sec:imbalance}. Smoothing is
+retained because several of the target conditions overlap visually in pigmented skin, and
+penalising over-confident predictions discourages the network from committing to a single
+class on evidence that does not warrant it.
+
+Parameters are updated with the AdamW optimizer \cite{ref26}, in which weight decay is
+decoupled from the gradient-based update
+\begin{equation}
+\theta_{t} = \theta_{t-1} - \eta \left( \frac{\hat{m}_{t}}{\sqrt{\hat{v}_{t}} + \delta}
++ \lambda\, \theta_{t-1} \right)
+\end{equation}
+where $\hat{m}_{t}$ and $\hat{v}_{t}$ are the bias-corrected first- and second-moment
+estimates of the gradient. Because the three backbones differ in depth and parameter count,
+each receives its own hyperparameter configuration rather than a single shared protocol.
+Table~\ref{tab:hyperparams} summarises the per-backbone settings. A two-phase training
+schedule is used: during the first $F$ epochs the backbone parameters are frozen and only the
+classification head is trained; the backbone is then unfrozen with a layer-wise learning rate
+set to $0.1\times$ the head rate, and a learning rate schedule of linear warmup for $W$ epochs
+followed by cosine decay is applied. Gradients are clipped at a maximum norm of 1.0. Robust
+data augmentation is applied throughout training.
+
+\begin{table}[htbp]
+\caption{Per-backbone hyperparameter configuration. Each backbone was trained independently
+with its own settings; ``epochs run'' is the number of epochs before early stopping on the
+composite criterion halted training.}\label{tab:hyperparams}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+& EfficientNet-B1 & ConvNeXt-Tiny & Swin-Tiny \\
+\midrule
+Head learning rate & $2 \times 10^{-4}$ & $2 \times 10^{-4}$ & $1 \times 10^{-4}$ \\
+Backbone LR multiplier & 0.1 & 0.1 & 0.1 \\
+Weight decay & $2 \times 10^{-4}$ & $3 \times 10^{-4}$ & $3 \times 10^{-4}$ \\
+Label smoothing $\varepsilon$ & 0.1 & 0.15 & 0.15 \\
+Dropout & 0.35 & 0.4 & 0.4 \\
+Drop-path rate & 0.15 & 0.2 & 0.2 \\
+Batch size & 16 & 12 & 8 \\
+Warmup epochs & 3 & 3 & 5 \\
+Freeze epochs & 6 & 3 & 8 \\
+Patience & 6 & 10 & 5 \\
+Max epochs & 30 & 40 & 30 \\
+Epochs actually run & 25 & 40 & 30 \\
+\botrule
+\end{tabular}
+\end{table}
+
+\section{Results and Discussion}\label{sec:results}
+
+\subsection{Experimental Setup}\label{sec:expsetup}
+
+All experiments were carried out on Google Colab using PyTorch. The EfficientNet-B1 retrain
+ran on CPU in fp32 (3.78 wall-clock hours); ConvNeXt-Tiny and Swin-Tiny were trained on a
+single NVIDIA T4. Each backbone was initialised from ImageNet-pretrained weights
+(\texttt{timm.create\_model} with \texttt{pretrained=True}) and fine-tuned independently with
+a fixed random seed of 42 and per-backbone hyperparameters as given in
+Table~\ref{tab:hyperparams}. \texttt{cudnn.deterministic} was not enabled, so exact
+bit-level reproduction across hardware is not claimed.
+
+Input images were first resized to $256 \times 256$, that is the 224 target resolution with 32
+pixels of padding, from which a random $224 \times 224$ crop was taken so that the network
+never observes an identical framing twice. The remaining augmentation pipeline comprised
+random horizontal and vertical flips; random rotation of up to $\pm 30^{\circ}$; colour jitter
+with brightness 0.4, contrast 0.4, saturation 0.3 and hue 0.1; a random affine transform with
+translation up to 10\%, shear of $10^{\circ}$ and scaling between 0.85 and 1.15; and random
+greyscale conversion with probability 0.05. Colour jitter and greyscale conversion were
+included to encourage invariance to illumination and capture-device variation, which is a
+practical concern for a system intended to accept smartphone photographs. Images were then
+converted to tensors and normalised using the ImageNet channel statistics, with means of
+0.485, 0.456 and 0.406 and standard deviations of 0.229, 0.224 and 0.225. Finally,
+cutout-style random erasing was applied after normalisation with probability 0.25, removing a
+region covering between 2\% and 20\% of the image at an aspect ratio between 0.3 and 3.3,
+which discourages the network from relying on any single localised region of the lesion.
+
+Model selection was deliberately not performed on validation accuracy, since a model favouring
+the majority classes can inflate that quantity while performing poorly on the conditions that
+matter most. Checkpoints were instead retained according to a composite criterion combining
+malignant-class sensitivity with overall accuracy
+\begin{equation}
+S = 0.4 \cdot \mathrm{Sens}_{\mathrm{mel}} + 0.3 \cdot \mathrm{Sens}_{\mathrm{bcc}}
++ 0.3 \cdot \mathrm{Acc}_{\mathrm{val}}
+\end{equation}
+so that where two epochs achieve comparable overall accuracy, the one with better melanoma and
+basal cell carcinoma recall is the one preserved. This directly counteracts the risk of an
+inflated headline accuracy driven by the majority class. Performance is reported in terms of
+accuracy, macro-averaged AUC, the Matthews correlation coefficient (MCC), and per-class
+precision, recall and F1-score.
+
+\subsection{Comparison with Individual Backbones}\label{sec:comparison}
+
+The proposed ensemble architecture was evaluated against its constituent backbones trained
+individually, namely EfficientNet-B1, ConvNeXt-Tiny and Swin-Tiny. The comparison is
+summarised in Fig.~\ref{fig:comparison} and the corresponding receiver operating
+characteristic curves in Fig.~\ref{fig:roc}.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{fig3_model_comparison.pdf}
+\caption{Model Comparison: Test Accuracy, Macro-Average AUC, and MCC.}
+\label{fig:comparison}
+\end{figure}
+
+On the de-duplicated 565-image test set, the equal-weight ensemble attains a test accuracy of
+87.79\% (95\% CI 84.96--90.44\%), a macro-averaged AUC of 0.9813 (95\% CI 0.9744--0.9872)
+and an MCC of 0.8504 (95\% CI 0.8163--0.8818). Confidence intervals are 2,000-resample
+stratified bootstrap. ConvNeXt-Tiny is the strongest single backbone on accuracy (88.67\%)
+and MCC (0.8603); Swin-Tiny reaches 85.66\% accuracy with 0.8231 MCC; EfficientNet-B1
+reaches 84.25\% with 0.8066 MCC. The ensemble's accuracy falls between ConvNeXt-Tiny and
+Swin-Tiny, but its macro-AUC (0.9813) exceeds every individual backbone and every
+two-backbone subset, indicating that the ensemble's primary advantage is ranking quality
+rather than peak accuracy.
+
+A paired bootstrap comparison of the ensemble against Swin-Tiny --- chosen because Swin-Tiny
+has the highest single-backbone macro-AUC (0.9707) --- shows all three paired differences
+significant: accuracy (+2.12 pp), macro-AUC (+0.0106, CI 0.0054--0.0163) and MCC (+0.0273,
+CI 0.0050--0.0515), with 95\% bootstrap confidence intervals excluding zero and the ensemble
+favoured in 98.9\%, 100\% and 99.2\% of resamples respectively.
+
+The value of the ensemble in this setting lies less in raising peak accuracy than in improving
+the ranking quality of the predicted class probabilities, which is what the macro-AUC gain
+reflects and which matters for a system intended to present ranked differential diagnoses
+rather than a single label. The soft-voting ensemble also dilutes the failure modes of any one
+architecture: where ConvNeXt has weak Keratosis recall and Swin has lower overall accuracy,
+the combination recovers from both.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{fig4_roc.pdf}
+\caption{ROC Curves for individual classes and macro-averages.}
+\label{fig:roc}
+\end{figure}
+
+\subsection{Per-Class Performance and Confusion Analysis}\label{sec:perclass}
+
+The confusion matrices of Fig.~\ref{fig:confusion} show that discriminative performance is not
+uniform across the five conditions. Basal Cell Carcinoma and Melanoma are classified most
+reliably, at per-class sensitivities of 1.0000 (106/106) and 0.9758 (121/124) respectively,
+which is the clinically desirable ordering: these are the two malignant categories in the
+taxonomy, and a missed malignancy carries a far higher cost than a false referral. Eczema
+recall is 0.9009 (100/111), Tinea recall is 0.8242 (75/91) and Keratosis recall is the
+weakest at 0.7068 (94/133), consistent with Keratosis receiving no clinical boost in the loss
+weighting.
+
+The principal source of residual error is the confusion between Eczema and Tinea, which is
+bidirectional: 9.0\% of Eczema cases are predicted as Tinea and 17.6\% of Tinea cases are
+predicted as Eczema. This is consistent with clinical experience rather than at odds with it.
+Both conditions present as scaly, erythematous or hyperpigmented plaques, and in melanin-rich
+skin the erythema that would ordinarily distinguish an eczematous plaque is frequently masked,
+leaving annular scaling as the main visual cue. In routine practice the two are separated by
+potassium hydroxide microscopy rather than by inspection alone, so a purely image-based
+classifier is being asked to make a distinction that dermatologists themselves do not attempt
+on morphology alone. Keratosis shows the next highest error rate, with 10.5\% of cases
+predicted as Basal Cell Carcinoma (14/133), which mirrors a known clinical overlap between
+pigmented actinic keratoses and superficial basal cell carcinomas.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{fig5_confusion_matrix.pdf}
+\caption{Confusion Matrix, Agreement Analysis, and Per-Class Sensitivity.}
+\label{fig:confusion}
+\end{figure}
+
+\subsection{Ablation of Ensemble Branches}\label{sec:ablation}
+
+To establish what the soft-voting ensemble contributes over its constituent parts, all seven
+possible subsets of the three backbones were evaluated on the de-duplicated 565-image test
+set. The results are given in Table~\ref{tab:ablation}.
+
+\begin{table}[htbp]
+\caption{Ablation of ensemble subsets on the de-duplicated test set (565 images). Each
+backbone was trained independently with its own hyperparameters
+(Table~\ref{tab:hyperparams}); multi-backbone configurations are equal-weight softmax
+averages.}\label{tab:ablation}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Configuration & Accuracy & Balanced Acc. & Macro-AUC & MCC \\
+\midrule
+EfficientNet-B1 (E) & 84.25\% & 84.65\% & 0.9678 & 0.8066 \\
+Swin-Tiny (S) & 85.66\% & 86.00\% & 0.9707 & 0.8231 \\
+ConvNeXt-Tiny (C) & 88.67\% & 88.85\% & 0.9641 & 0.8603 \\
+\midrule
+E + C & 88.14\% & 88.45\% & 0.9798 & 0.8545 \\
+E + S & 85.84\% & 86.16\% & 0.9772 & 0.8255 \\
+C + S & 88.32\% & 88.65\% & 0.9766 & 0.8567 \\
+\midrule
+E + C + S (proposed) & 87.79\% & 88.15\% & 0.9813 & 0.8504 \\
+\botrule
+\end{tabular}
+\end{table}
+
+The three-backbone ensemble achieves the highest macro-AUC of any configuration (0.9813),
+which is the metric most relevant to a system producing ranked differential diagnoses.
+ConvNeXt-Tiny is the strongest single backbone on accuracy (88.67\%) and MCC (0.8603),
+followed by Swin-Tiny (85.66\% / 0.8231) and EfficientNet-B1 (84.25\% / 0.8066). The full
+ensemble's accuracy (87.79\%) falls below ConvNeXt's, indicating that the ensemble's value
+lies in ranking quality and robustness rather than peak accuracy: the paired bootstrap of
+ensemble versus Swin-Tiny shows all three metrics significantly favour the ensemble, while the
+ensemble's macro-AUC exceeds every individual backbone and every two-backbone subset. The gain
+arises from the complementarity of the errors made by the three encoders: where one backbone
+is uncertain, the other two can compensate.
+
+\section{Conclusion}\label{sec:conclusion}
+
+This study addresses the crucial diagnostic gap for dermatological disorders in the
+melanin-rich, brown skin tones that are typical of South Asian populations. By introducing an
+equal-weight soft-voting ensemble that combines independently fine-tuned EfficientNet-B1,
+Swin Transformer and ConvNeXt-Tiny backbones, this research demonstrates that decision-level
+fusion of heterogeneous architectures improves ranking quality (macro-AUC) over any single
+backbone when applied to a melanin-rich corpus. On a de-duplicated 565-image test set, the
+ensemble achieves 87.79\% accuracy, 0.9813 macro-AUC and 0.8504 MCC, with the highest
+macro-AUC of any configuration and all three paired bootstrap differences against Swin-Tiny
+(the single backbone with the highest macro-AUC) excluding zero. Critically, it
+retains high diagnostic sensitivity on the malignant conditions: 100\% BCC recall and 97.58\%
+melanoma recall. Keratosis recall (70.68\%) is the principal residual weakness, consistent
+with the absence of a clinical loss boost for that class. Although clinical metadata
+integration is specified as part of the system architecture, it is not exercised in the
+present image-only evaluation and remains for future work.
+
+\section{Future Scope}\label{sec:future}
+
+Three directions are identified as the immediate continuations of this work.
+
+\begin{enumerate}
+\item \textbf{Dataset expansion and clinical deployment.} Future work will emphasise
+augmenting the dataset with real-world clinical images from localised demographics and
+deploying the clinical decision support system within primary healthcare nodes across India.
+\item \textbf{Explainability (XAI).} Gradient-weighted class activation mapping (Grad-CAM) has
+been implemented for all three backbones, producing per-branch saliency maps that are
+weighted-averaged into a single ensemble heatmap. A faithfulness evaluation on 150 stratified
+test images shows that Grad-CAM significantly outperforms a structure-matched random baseline
+(AOPC +0.1266, 95\% CI [0.1059, 0.1478], Wilcoxon $p < 0.0001$, 127/150 wins, Cohen's
+$d_z = 0.967$), confirming that the heatmaps identify pixels the model actually uses
+\cite{ref21,ref22}. The result holds on images the ensemble classified incorrectly (+0.1479,
+$p = 0.0006$), indicating that faithfulness is a property of the explanation method rather
+than a side-effect of correct classification. Remaining work includes comparing Grad-CAM
+against SHAP-based attributions and validating the heuristic bridge that converts heatmaps
+into clinical summary fields (focus region, boundary alignment, artifact flag).
+\item \textbf{Federated learning and differential privacy.} A federated learning prototype
+using Flower FedAvg across three simulated hospital clients has been completed for
+EfficientNet-B1, demonstrating that melanoma sensitivity holds within 1.3 percentage points of
+the centralised baseline while overall accuracy drops by 3.2 points \cite{ref24}. Future work
+will extend federated training to all three backbones and add formal differential privacy
+guarantees so that patient images never leave their originating institution.
+\item \textbf{Skin-tone fairness analysis.} A preliminary individual typology angle (ITA)
+analysis binned the test set into six tone categories and measured per-bin accuracy for each
+backbone and the ensemble. On the full (non-de-duplicated) 727-image test set, the ensemble's
+best-performing bin (``intermediate'', $n=93$, 94.62\%) and worst-performing bin (``brown'',
+$n=92$, 82.61\%) differ by 12.01 percentage points with non-overlapping 95\% bootstrap
+confidence intervals. Notably, the gap does not track ITA monotonically: the worst-performing
+bin is ``brown'' rather than the darkest (``dark'') category, and all three backbones show the
+same qualitative ordering across tone bins, suggesting the gap may reflect which disease
+classes and source corpora happen to dominate each bin rather than a tone-specific model
+weakness. This analysis is preliminary and is not yet reported as a validated fairness result:
+it was run on the contaminated 727-image set rather than the de-duplicated 565-image set used
+for every other result in this paper, and the confound between tone bin and disease-class
+composition has not been decomposed. Future work will re-run this analysis on the
+de-duplicated test set and control for class mix before drawing fairness conclusions.
+\end{enumerate}
+
+\begin{thebibliography}{99}
+
+\bibitem{ref1}
+Aboulmira, A., Hrimech, H., Lachgar, M.: Skin diseases classification with machine learning
+and deep learning techniques: A systematic review. International Journal of Advanced Computer
+Science and Applications \textbf{15}(10), 1155--1173 (2024)
+
+\bibitem{ref2}
+Yan, S., Yu, Z., Primiero, C., Vico-Alonso, C., Wang, Z., Yang, L., Tschandl, P., Hu, M.,
+Ju, L., et al.: A multimodal vision foundation model for clinical dermatology. Nature Medicine
+\textbf{31}(8), 2691--2702 (2025)
+
+\bibitem{ref3}
+Ward, A., Li, J., Wang, J., Lakshminarasimhan, S., Carrick, A., Campana, B., Hartford, J.,
+et al.: Creating an empirical dermatology dataset through crowdsourcing with web search
+advertisements. JAMA Network Open \textbf{7}(11), e2446615 (2024)
+
+\bibitem{ref4}
+Gottfrois, P., Gr\"{o}ger, F., Andriambololoniaina, F.H., Amruthalingam, L.,
+Gonzalez-Jimenez, A., Hsu, C., Kessy, A., Lionetti, S., et al.: PASSION for dermatology:
+Bridging the diversity gap with pigmented skin images from Sub-Saharan Africa. In: Medical
+Image Computing and Computer Assisted Intervention -- MICCAI 2024, Lecture Notes in Computer
+Science, vol. 15003, pp. 703--712. Springer, Cham (2024)
+
+\bibitem{ref5}
+Madarkar, S.S., Madarkar, M., Madhumitha, V., Prakash, T., Mopuri, K.R., Vinaykumar, M.V.,
+Sathwika, K.V.L., et al.: DermaCon-IN: A multi-concept annotated dermatological image dataset
+of Indian skin disorders for clinical AI research. In: Advances in Neural Information
+Processing Systems (NeurIPS), Datasets and Benchmarks Track (2025)
+
+\bibitem{ref6}
+Ben\v{c}evi\'{c}, M., Habijan, M., Gali\'{c}, I., Babin, D., Pi\v{z}urica, A.: Understanding
+skin color bias in deep learning-based skin lesion segmentation. Computer Methods and Programs
+in Biomedicine \textbf{245}, 108044 (2024)
+
+\bibitem{ref7}
+Corbin, A., Marques, O.: Exploring strategies to generate Fitzpatrick skin type metadata for
+dermoscopic images using individual typology angle techniques. Multimedia Tools and
+Applications \textbf{82}(15), 23771--23795 (2023)
+
+\bibitem{ref8}
+Kong, Q., Chiu, C.-H., Zeng, D., Chen, Y.-J., Ho, T.-Y., Hu, J., Shi, Y.: Achieving fairness
+through channel pruning for dermatological disease diagnosis. In: Medical Image Computing and
+Computer Assisted Intervention -- MICCAI 2024, pp. 24--34. Springer, Cham (2024)
+
+\bibitem{ref9}
+Munia, N., Imran, A.-A.-Z.: DermDiff: Generative diffusion model for mitigating racial biases
+in dermatology diagnosis. arXiv preprint arXiv:2503.17536 (2025)
+
+\bibitem{ref10}
+Housley, P.P., Samia, A.M., Motaparthi, K.: Performance evaluation of ChatGPT-4o in
+dermatological diagnoses across Fitzpatrick skin types. Cureus (2025).
+https://doi.org/10.7759/cureus.87368
+
+\bibitem{ref11}
+Ayas, S.: Multiclass skin lesion classification in dermoscopic images using Swin Transformer
+model. Neural Computing and Applications \textbf{35}(9), 6713--6722 (2023)
+
+\bibitem{ref12}
+Hao, S., Zhang, L., Jiang, Y., Wang, J., Ji, Z., Zhao, L., Ganchev, I.: ConvNeXt-ST-AFF: A
+novel skin disease classification model based on fusion of ConvNeXt and Swin Transformer.
+IEEE Access \textbf{11}, 117460--117473 (2023)
+
+\bibitem{ref13}
+Liu, X., Wang, X., Liu, H., Zang, X., Li, L., Ji, Z., Ganchev, I.: FUSCANet: Enhancing skin
+disease classification through feature fusion and spatial-channel attention mechanisms. IEEE
+Access \textbf{13}, 100683--100698 (2025)
+
+\bibitem{ref14}
+Lilhore, U.K., Sharma, Y.K., Simaiya, S., Alroobaea, R., Baqasah, A.M., Alsafyani, M.,
+Alhazmi, A.: SkinEHDLF: A hybrid deep learning approach for accurate skin cancer
+classification in complex systems. Scientific Reports \textbf{15}, 14913 (2025)
+
+\bibitem{ref15}
+Thwin, S.M., Park, H.-S.: Skin lesion classification using a deep ensemble model. Applied
+Sciences \textbf{14}(13), 5599 (2024)
+
+\bibitem{ref16}
+Thwin, S.M., Park, H.-S.: Enhanced skin lesion segmentation and classification through
+ensemble models. Eng \textbf{5}(4), 2805--2820 (2024)
+
+\bibitem{ref17}
+Asif, S., Zhao, M., Li, Y., Tang, F., Zhu, Y.: CFI-Net: A Choquet fuzzy integral based
+ensemble network with PSO-optimized fuzzy measures for diagnosing multiple skin diseases
+including Mpox. IEEE Journal of Biomedical and Health Informatics \textbf{28}(9), 5573--5586
+(2024)
+
+\bibitem{ref18}
+Gururaj, H.L., Manju, N., Nagarjun, A., Manjunath Aradhya, V.N., Flammini, F.: DeepSkin: A
+deep learning approach for skin cancer classification. IEEE Access \textbf{11}, 50205--50214
+(2023)
+
+\bibitem{ref19}
+Hosny, K.M., Said, W., Elmezain, M., Kassem, M.A.: Explainable deep inherent learning for
+multi-classes skin lesion classification. Applied Soft Computing \textbf{159}, 111624 (2024)
+
+\bibitem{ref20}
+Metta, C., Beretta, A., Guidotti, R., Yin, Y., Gallinari, P., Rinzivillo, S., Giannotti, F.:
+Advancing dermatological diagnostics: Interpretable AI for enhanced skin lesion classification.
+Diagnostics \textbf{14}(7), 753 (2024)
+
+\bibitem{ref21}
+Badhon, S.M.S.I., Khushbu, S.A., Shaqib, S.M., Ali, M.A., Anik, A.H., Hossain, K.S.M.T.:
+Explainable AI for skin disease classification using gradient-weighted class activation mapping
+and transfer learning in digital health to identify contours. Digital Health \textbf{11} (2025)
+
+\bibitem{ref22}
+Fiaz, M., Khan, M.B.S., Khan, A.H., Bilal, A., Abdullah, M., Darem, A.A., Sarwar, R.: An
+explainable hybrid deep learning framework for precise skin lesion segmentation and multi-class
+classification. Frontiers in Medicine \textbf{12} (2025)
+
+\bibitem{ref23}
+Lee, K., Cavalcanti, T.C., Kim, S., Lew, H.M., Suh, D.H., Lee, D.H., Hwang, J.Y.: Multi-task
+and few-shot learning-based fully automatic deep learning platform for mobile diagnosis of skin
+diseases. IEEE Journal of Biomedical and Health Informatics \textbf{27}(1), 176--187 (2023)
+
+\bibitem{ref24}
+Hossen, Md.N., Panneerselvam, V., Koundal, D., Ahmed, K., Bui, F.M., Ibrahim, S.M.: Federated
+machine learning for detection of skin diseases and enhancement of Internet of Medical Things
+(IoMT) security. IEEE Journal of Biomedical and Health Informatics \textbf{27}(2), 835--841
+(2023)
+
+\bibitem{ref25}
+Hsu, B.W.-Y., Tseng, V.S.: HiTrace: Hierarchical class tracing approach for open-set
+recognition on skin lesions. IEEE Journal of Biomedical and Health Informatics \textbf{29}(8),
+5700--5711 (2025)
+
+\bibitem{ref26}
+Loshchilov, I., Hutter, F.: Decoupled weight decay regularization. In: International Conference
+on Learning Representations (ICLR) (2019)
+
+\bibitem{ref27}
+Hu, J., Shen, L., Sun, G.: Squeeze-and-excitation networks. In: Proceedings of the IEEE
+Conference on Computer Vision and Pattern Recognition (CVPR), pp. 7132--7141 (2018)
+
+\end{thebibliography}
+
+\end{document}
