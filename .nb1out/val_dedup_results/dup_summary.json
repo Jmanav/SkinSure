@@ -1,0 +1,70 @@
+{
+  "n_images_hashed": 6655,
+  "n_images_failed": 0,
+  "hash_size_bits": 64,
+  "n_cross_split_pairs_examined": 8184296,
+  "per_split_counts": {
+    "test": 727,
+    "train": 5180,
+    "val": 748
+  },
+  "thresholds": {
+    "exact (d=0)": {
+      "n_pairs": 116,
+      "n_same_class": 103,
+      "n_cross_class": 13,
+      "by_split_pair": {
+        "train <-> val": 63,
+        "test <-> train": 49,
+        "test <-> val": 4
+      },
+      "by_class": {
+        "Eczema": 48,
+        "Tinea": 46,
+        "Melanoma": 12,
+        "Keratosis": 7,
+        "Basal_Cell_Carcinoma": 3
+      },
+      "n_test_images_with_dup_in_train_or_val": 48,
+      "pct_of_test": 6.602
+    },
+    "d<=5": {
+      "n_pairs": 4267,
+      "n_same_class": 3348,
+      "n_cross_class": 919,
+      "by_split_pair": {
+        "train <-> val": 2222,
+        "test <-> train": 1764,
+        "test <-> val": 281
+      },
+      "by_class": {
+        "Melanoma": 2920,
+        "Basal_Cell_Carcinoma": 441,
+        "Keratosis": 365,
+        "Eczema": 307,
+        "Tinea": 234
+      },
+      "n_test_images_with_dup_in_train_or_val": 162,
+      "pct_of_test": 22.283
+    },
+    "d<=8": {
+      "n_pairs": 24474,
+      "n_same_class": 17865,
+      "n_cross_class": 6609,
+      "by_split_pair": {
+        "train <-> val": 12911,
+        "test <-> train": 9969,
+        "test <-> val": 1594
+      },
+      "by_class": {
+        "Melanoma": 17600,
+        "Basal_Cell_Carcinoma": 1955,
+        "Eczema": 1927,
+        "Keratosis": 1826,
+        "Tinea": 1166
+      },
+      "n_test_images_with_dup_in_train_or_val": 308,
+      "pct_of_test": 42.366
+    }
+  }
+}

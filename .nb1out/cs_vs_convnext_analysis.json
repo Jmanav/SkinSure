@@ -1,0 +1,121 @@
+{
+  "n": 565,
+  "cs_summary": {
+    "accuracy": 0.8831858407079646,
+    "macro_auc": 0.9766229465635519,
+    "mcc": 0.8566991760958395,
+    "ece": 0.020896930240951787
+  },
+  "convnext_summary": {
+    "accuracy": 0.8867256637168142,
+    "macro_auc": 0.9641055265784291,
+    "mcc": 0.8603248814460752,
+    "ece": 0.04968680327972478
+  },
+  "cs_per_class_recall": {
+    "Basal_Cell_Carcinoma": {
+      "recall": 1.0,
+      "support": 106
+    },
+    "Eczema": {
+      "recall": 0.8918918918918919,
+      "support": 111
+    },
+    "Keratosis": {
+      "recall": 0.7218045112781954,
+      "support": 133
+    },
+    "Melanoma": {
+      "recall": 0.9838709677419355,
+      "support": 124
+    },
+    "Tinea": {
+      "recall": 0.8351648351648352,
+      "support": 91
+    }
+  },
+  "cs_confusion_matrix": [
+    [
+      106,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      99,
+      2,
+      0,
+      10
+    ],
+    [
+      17,
+      11,
+      96,
+      2,
+      7
+    ],
+    [
+      1,
+      0,
+      1,
+      122,
+      0
+    ],
+    [
+      0,
+      15,
+      0,
+      0,
+      76
+    ]
+  ],
+  "classes": [
+    "Basal_Cell_Carcinoma",
+    "Eczema",
+    "Keratosis",
+    "Melanoma",
+    "Tinea"
+  ],
+  "eczema_to_tinea_pct": 9.00900900900901,
+  "tinea_to_eczema_pct": 16.483516483516482,
+  "paired_bootstrap_cs_minus_convnext": {
+    "accuracy (pp)": {
+      "observed": -0.3539823008849585,
+      "ci_lo": -1.5929203539822967,
+      "ci_hi": 0.707964601769917,
+      "mean": -0.3632743362831857,
+      "frac_favouring_cs": 0.2285,
+      "ci_includes_zero": true,
+      "n": 2000
+    },
+    "macro-AUC": {
+      "observed": 0.01251741998512279,
+      "ci_lo": 0.0061764499795528924,
+      "ci_hi": 0.019476805930468268,
+      "mean": 0.012578039013120218,
+      "frac_favouring_cs": 1.0,
+      "ci_includes_zero": false,
+      "n": 2000
+    },
+    "MCC": {
+      "observed": -0.003625705350235764,
+      "ci_lo": -0.018391985607173516,
+      "ci_hi": 0.010154766846111286,
+      "mean": -0.003744713333828333,
+      "frac_favouring_cs": 0.3185,
+      "ci_includes_zero": true,
+      "n": 2000
+    },
+    "ECE": {
+      "observed": -0.028789873038772992,
+      "ci_lo": -0.04883253586766994,
+      "ci_hi": 0.010773542841187572,
+      "mean": -0.021232198841724777,
+      "frac_favouring_cs": 0.9055,
+      "ci_includes_zero": true,
+      "n": 2000
+    }
+  }
+}
